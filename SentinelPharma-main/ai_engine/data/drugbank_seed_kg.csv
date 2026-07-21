@@ -1,0 +1,163 @@
+source,source_type,relation,target,target_type,pdb_id
+Nintedanib,drug,targets,VEGFR2,target,3WZE
+Nintedanib,drug,treats,Pulmonary Fibrosis,disease,3WZE
+Pirfenidone,drug,targets,TGFBR1,target,6B8Y
+Pirfenidone,drug,treats,Pulmonary Fibrosis,disease,6B8Y
+Metformin,drug,targets,AMPK,target,4CFE
+Metformin,drug,treats,Type 2 Diabetes,disease,4CFE
+Tofacitinib,drug,targets,JAK3,target,5WO4
+Tofacitinib,drug,treats,Rheumatoid Arthritis,disease,5WO4
+Baricitinib,drug,targets,JAK1,target,4W9X
+Baricitinib,drug,treats,Rheumatoid Arthritis,disease,4W9X
+Donepezil,drug,targets,ACHE,target,4EY7
+Donepezil,drug,treats,Alzheimer Disease,disease,4EY7
+Semaglutide,drug,targets,GLP1R,target,5VEW
+Semaglutide,drug,treats,Type 2 Diabetes,disease,5VEW
+Pioglitazone,drug,targets,PPARG,target,3V9V
+Pioglitazone,drug,treats,Type 2 Diabetes,disease,3V9V
+VEGFR2,target,in_pathway,Angiogenesis Pathway,pathway,
+TGFBR1,target,in_pathway,TGF-beta Signaling,pathway,
+AMPK,target,in_pathway,Metabolic Stress Response,pathway,
+JAK3,target,in_pathway,Cytokine Signaling,pathway,
+JAK1,target,in_pathway,Interleukin Cascade,pathway,
+ACHE,target,in_pathway,Cholinergic Synapse,pathway,
+GLP1R,target,in_pathway,Insulin Signaling,pathway,
+PPARG,target,in_pathway,Neuroinflammation Pathway,pathway,
+Angiogenesis Pathway,pathway,associated_with,Pulmonary Fibrosis,disease,
+TGF-beta Signaling,pathway,associated_with,Pulmonary Fibrosis,disease,
+Metabolic Stress Response,pathway,associated_with,Rheumatoid Arthritis,disease,
+Cytokine Signaling,pathway,associated_with,Rheumatoid Arthritis,disease,
+Interleukin Cascade,pathway,associated_with,Rheumatoid Arthritis,disease,
+Cholinergic Synapse,pathway,associated_with,Alzheimer Disease,disease,
+Insulin Signaling,pathway,associated_with,Alzheimer Disease,disease,
+Neuroinflammation Pathway,pathway,associated_with,Alzheimer Disease,disease,
+Simvastatin,drug,targets,HMGCR,target,1HWK
+Simvastatin,drug,treats,Hyperlipidemia,disease,1HWK
+HMGCR,target,in_pathway,Lipid Signaling,pathway,
+Lipid Signaling,pathway,associated_with,Rheumatoid Arthritis,disease,
+Dapagliflozin,drug,targets,SGLT2,target,7VSI
+Dapagliflozin,drug,treats,Type 2 Diabetes,disease,7VSI
+SGLT2,target,in_pathway,Cardio-Renal Metabolic Pathway,pathway,
+Cardio-Renal Metabolic Pathway,pathway,associated_with,Pulmonary Fibrosis,disease,
+Rifampicin,drug,targets,RNAPB,target,5UHB
+Rifampicin,drug,treats,Tuberculosis,disease,5UHB
+Isoniazid,drug,targets,INHA,target,2H7M
+Isoniazid,drug,treats,Tuberculosis,disease,2H7M
+Pyrazinamide,drug,targets,PncA,target,3PL1
+Pyrazinamide,drug,treats,Tuberculosis,disease,3PL1
+RNAPB,target,in_pathway,Mycobacterial RNA Synthesis,pathway,
+INHA,target,in_pathway,Mycolic Acid Biosynthesis,pathway,
+PncA,target,in_pathway,Mycobacterial Energy Stress,pathway,
+Mycobacterial RNA Synthesis,pathway,associated_with,Tuberculosis,disease,
+Mycolic Acid Biosynthesis,pathway,associated_with,Tuberculosis,disease,
+Mycobacterial Energy Stress,pathway,associated_with,Tuberculosis,disease,
+Lisinopril,drug,targets,ACE,target,1O86
+Lisinopril,drug,treats,Hypertension,disease,1O86
+Amlodipine,drug,targets,CACNA1C,target,6JP5
+Amlodipine,drug,treats,Hypertension,disease,6JP5
+Losartan,drug,targets,AGTR1,target,4ZUD
+Losartan,drug,treats,Hypertension,disease,4ZUD
+ACE,target,in_pathway,Renin Angiotensin Signaling,pathway,
+CACNA1C,target,in_pathway,Calcium Channel Signaling,pathway,
+AGTR1,target,in_pathway,Vascular Tone Regulation,pathway,
+Renin Angiotensin Signaling,pathway,associated_with,Hypertension,disease,
+Calcium Channel Signaling,pathway,associated_with,Hypertension,disease,
+Vascular Tone Regulation,pathway,associated_with,Hypertension,disease,
+Albuterol,drug,targets,ADRB2,target,2RH1
+Albuterol,drug,treats,Asthma,disease,2RH1
+Budesonide,drug,targets,NR3C1,target,4P6X
+Budesonide,drug,treats,Asthma,disease,4P6X
+Montelukast,drug,targets,CYSLTR1,target,6RZ4
+Montelukast,drug,treats,Asthma,disease,6RZ4
+ADRB2,target,in_pathway,Bronchodilation Signaling,pathway,
+NR3C1,target,in_pathway,Airway Inflammation Control,pathway,
+CYSLTR1,target,in_pathway,Leukotriene Signaling,pathway,
+Bronchodilation Signaling,pathway,associated_with,Asthma,disease,
+Airway Inflammation Control,pathway,associated_with,Asthma,disease,
+Leukotriene Signaling,pathway,associated_with,Asthma,disease,
+Empagliflozin,drug,targets,SGLT2,target,7VSI
+Empagliflozin,drug,treats,Chronic Kidney Disease,disease,7VSI
+Finerenone,drug,targets,NR3C2,target,2AA2
+Finerenone,drug,treats,Chronic Kidney Disease,disease,2AA2
+Dapagliflozin,drug,treats,Chronic Kidney Disease,disease,7VSI
+NR3C2,target,in_pathway,Mineralocorticoid Inflammation,pathway,
+Cardio-Renal Metabolic Pathway,pathway,associated_with,Chronic Kidney Disease,disease,
+Mineralocorticoid Inflammation,pathway,associated_with,Chronic Kidney Disease,disease,
+Atorvastatin,drug,targets,HMGCR,target,1HWK
+Atorvastatin,drug,treats,Hyperlipidemia,disease,1HWK
+Ezetimibe,drug,targets,NPC1L1,target,7DFZ
+Ezetimibe,drug,treats,Hyperlipidemia,disease,7DFZ
+NPC1L1,target,in_pathway,Cholesterol Absorption,pathway,
+Cholesterol Absorption,pathway,associated_with,Hyperlipidemia,disease,
+Lipid Signaling,pathway,associated_with,Hyperlipidemia,disease,
+Sertraline,drug,targets,SLC6A4,target,6AWO
+Sertraline,drug,treats,Major Depressive Disorder,disease,6AWO
+Fluoxetine,drug,targets,SLC6A4,target,6AWO
+Fluoxetine,drug,treats,Major Depressive Disorder,disease,6AWO
+Bupropion,drug,targets,SLC6A3,target,4M48
+Bupropion,drug,treats,Major Depressive Disorder,disease,4M48
+SLC6A4,target,in_pathway,Serotonin Transport,pathway,
+SLC6A3,target,in_pathway,Dopamine Transport,pathway,
+Serotonin Transport,pathway,associated_with,Major Depressive Disorder,disease,
+Dopamine Transport,pathway,associated_with,Major Depressive Disorder,disease,
+Pembrolizumab,drug,targets,PDCD1,target,5GGS
+Pembrolizumab,drug,treats,Non Small Cell Lung Cancer,disease,5GGS
+Osimertinib,drug,targets,EGFR,target,4ZAU
+Osimertinib,drug,treats,Non Small Cell Lung Cancer,disease,4ZAU
+Crizotinib,drug,targets,ALK,target,2XP2
+Crizotinib,drug,treats,Non Small Cell Lung Cancer,disease,2XP2
+PDCD1,target,in_pathway,Immune Checkpoint Signaling,pathway,
+EGFR,target,in_pathway,Growth Factor Signaling,pathway,
+ALK,target,in_pathway,Oncogenic Kinase Signaling,pathway,
+Immune Checkpoint Signaling,pathway,associated_with,Non Small Cell Lung Cancer,disease,
+Growth Factor Signaling,pathway,associated_with,Non Small Cell Lung Cancer,disease,
+Oncogenic Kinase Signaling,pathway,associated_with,Non Small Cell Lung Cancer,disease,
+Letrozole,drug,targets,CYP19A1,target,3EQM
+Letrozole,drug,treats,Breast Cancer,disease,3EQM
+Tamoxifen,drug,targets,ESR1,target,3ERT
+Tamoxifen,drug,treats,Breast Cancer,disease,3ERT
+Trastuzumab,drug,targets,ERBB2,target,1N8Z
+Trastuzumab,drug,treats,Breast Cancer,disease,1N8Z
+CYP19A1,target,in_pathway,Estrogen Biosynthesis,pathway,
+ESR1,target,in_pathway,Estrogen Receptor Signaling,pathway,
+ERBB2,target,in_pathway,HER2 Signaling,pathway,
+Estrogen Biosynthesis,pathway,associated_with,Breast Cancer,disease,
+Estrogen Receptor Signaling,pathway,associated_with,Breast Cancer,disease,
+HER2 Signaling,pathway,associated_with,Breast Cancer,disease,
+Nirmatrelvir,drug,targets,SARSCoV2_MPRO,target,7VH8
+Nirmatrelvir,drug,treats,COVID-19,disease,7VH8
+Remdesivir,drug,targets,SARSCoV2_RdRp,target,7BV2
+Remdesivir,drug,treats,COVID-19,disease,7BV2
+Dexamethasone,drug,targets,NR3C1,target,4P6X
+Dexamethasone,drug,treats,COVID-19,disease,4P6X
+SARSCoV2_MPRO,target,in_pathway,Viral Protease Processing,pathway,
+SARSCoV2_RdRp,target,in_pathway,Viral RNA Replication,pathway,
+Viral Protease Processing,pathway,associated_with,COVID-19,disease,
+Viral RNA Replication,pathway,associated_with,COVID-19,disease,
+Airway Inflammation Control,pathway,associated_with,COVID-19,disease,
+Baricitinib,drug,targets,JAK1,target,4W9X
+Baricitinib,drug,treats,COVID-19,disease,4W9X
+Tocilizumab,drug,targets,IL6R,target,1N26
+Tocilizumab,drug,treats,COVID-19,disease,1N26
+Favipiravir,drug,targets,SARSCoV2_RdRp,target,7AAP
+Favipiravir,drug,treats,COVID-19,disease,7AAP
+JAK1,target,in_pathway,Interleukin Cascade,pathway,
+IL6R,target,in_pathway,IL-6 Signaling,pathway,
+IL-6 Signaling,pathway,associated_with,COVID-19,disease,
+Interleukin Cascade,pathway,associated_with,COVID-19,disease,
+Sofosbuvir,drug,targets,NS5B,target,4WTG
+Sofosbuvir,drug,treats,Hepatitis C,disease,4WTG
+Ribavirin,drug,targets,IMPDH,target,1NF7
+Ribavirin,drug,treats,Hepatitis C,disease,1NF7
+NS5B,target,in_pathway,Viral RNA Replication,pathway,
+IMPDH,target,in_pathway,Nucleotide Biosynthesis,pathway,
+Viral RNA Replication,pathway,associated_with,Hepatitis C,disease,
+Nucleotide Biosynthesis,pathway,associated_with,Hepatitis C,disease,
+Zidovudine,drug,targets,HIV_RT,target,1RTD
+Zidovudine,drug,treats,HIV Infection,disease,1RTD
+Dolutegravir,drug,targets,HIV_IN,target,3S3M
+Dolutegravir,drug,treats,HIV Infection,disease,3S3M
+HIV_RT,target,in_pathway,Retroviral Reverse Transcription,pathway,
+HIV_IN,target,in_pathway,Viral Genome Integration,pathway,
+Retroviral Reverse Transcription,pathway,associated_with,HIV Infection,disease,
+Viral Genome Integration,pathway,associated_with,HIV Infection,disease,

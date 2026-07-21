@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-label="Disease risk icon">
+  <rect width="640" height="480" fill="#e5e7eb"/>
+  <g fill="none" stroke="#0b0f19" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="248" cy="188" r="66"/>
+    <line x1="248" y1="98" x2="248" y2="76"/>
+    <line x1="248" y1="278" x2="248" y2="300"/>
+    <line x1="158" y1="188" x2="136" y2="188"/>
+    <line x1="338" y1="188" x2="360" y2="188"/>
+    <line x1="184" y1="124" x2="168" y2="108"/>
+    <line x1="312" y1="124" x2="328" y2="108"/>
+    <line x1="184" y1="252" x2="168" y2="268"/>
+    <line x1="312" y1="252" x2="328" y2="268"/>
+    <circle cx="248" cy="188" r="23"/>
+  </g>
+  <circle cx="286" cy="214" r="7" fill="#0b0f19"/>
+  <circle cx="214" cy="161" r="7" fill="#0b0f19"/>
+  <g fill="none" stroke="#0b0f19" stroke-width="13" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M402 328l78-134a15 15 0 0 1 26 0l78 134a15 15 0 0 1-13 22H415a15 15 0 0 1-13-22z"/>
+    <line x1="493" y1="236" x2="493" y2="300"/>
+  </g>
+  <circle cx="493" cy="320" r="7" fill="#0b0f19"/>
+  <g fill="none" stroke="#0b0f19" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="398" cy="160" rx="30" ry="20"/>
+    <ellipse cx="430" cy="250" rx="22" ry="14"/>
+    <ellipse cx="368" cy="268" rx="16" ry="11"/>
+  </g>
+</svg>

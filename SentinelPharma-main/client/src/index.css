@@ -1,0 +1,473 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #0f172a;
+  --paper: #f6f7fb;
+  --accent-a: #0ea5e9;
+  --accent-b: #14b8a6;
+  --accent-c: #f97316;
+  --auth-bg: #eef2ef;
+  --auth-surface: #ffffff;
+  --auth-panel: #f3f5f8;
+  --auth-border: #dbe2ea;
+  --auth-text: #0f172a;
+  --auth-muted: #64748b;
+  --auth-primary: #0b1b31;
+  --auth-accent: #0ea5e9;
+}
+
+/* Base styles */
+body {
+  @apply bg-gray-50 text-gray-900 antialiased;
+  font-family: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(14, 165, 233, 0.1), transparent 28%),
+    radial-gradient(circle at 90% 6%, rgba(20, 184, 166, 0.08), transparent 26%),
+    var(--paper);
+}
+
+code, pre {
+  font-family: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
+}
+
+.dash-surface {
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.78));
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.dash-card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.06);
+}
+
+.section-title {
+  letter-spacing: -0.02em;
+}
+
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rise {
+  animation: riseIn 260ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+@keyframes fadeSlideSoft {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-soft {
+  animation: fadeSlideSoft 220ms ease-out both;
+}
+
+.btn-premium {
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.btn-premium:hover {
+  transform: translateY(-1px);
+  filter: saturate(1.04);
+}
+
+.btn-premium:active {
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-soft,
+  .animate-rise,
+  .btn-premium {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
+}
+
+/* Agent thinking animation */
+@keyframes thinking {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.agent-thinking {
+  animation: thinking 1.5s ease-in-out infinite;
+}
+
+/* Gradient backgrounds */
+.gradient-primary {
+  @apply bg-gradient-to-r from-blue-600 to-cyan-500;
+}
+
+.gradient-secure {
+  @apply bg-gradient-to-r from-green-600 to-emerald-500;
+}
+
+.gradient-cloud {
+  @apply bg-gradient-to-r from-blue-600 to-purple-500;
+}
+
+/* Modal animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s ease-out forwards;
+}
+
+/* Shimmer effect for loading states */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Glass morphism effect */
+.glass {
+  @apply bg-white/70 backdrop-blur-lg border border-white/20;
+}
+
+/* Card hover lift effect */
+.hover-lift {
+  @apply transition-all duration-300;
+}
+
+.hover-lift:hover {
+  @apply -translate-y-1 shadow-xl;
+}
+
+
+/* ---------- UI polish additions (append to your index.css) ---------- */
+
+/* Glow + hover helpers */
+.glow-hover:hover {
+  box-shadow: 0 10px 40px rgba(14,165,233,0.12), 0 4px 12px rgba(14,165,233,0.06);
+  transform: translateY(-4px);
+  transition: all 220ms cubic-bezier(.2,.9,.3,1);
+}
+
+/* Soft elevated shadow used for modal items on hover */
+.shadow-soft-hover {
+  transition: box-shadow .18s ease, transform .18s ease;
+}
+.shadow-soft-hover:hover {
+  box-shadow: 0 18px 45px rgba(15,23,42,0.08);
+  transform: translateY(-4px);
+}
+
+/* Slight scale when hovering grouped items */
+.group-hover-scale:hover {
+  transform: translateY(-3px) scale(1.01);
+  transition: transform .18s ease;
+}
+
+/* anims used in modal (if not present already) */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fadeIn { animation: fadeIn .16s ease both; }
+
+@keyframes slideUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-slideUp { animation: slideUp .22s cubic-bezier(.2,.9,.3,1) both; }
+
+/* small utility: subtle gradient badge used in header */
+.gradient-badge {
+  background-image: linear-gradient(90deg, rgba(124,58,237,1), rgba(6,182,212,1));
+  color: white;
+}
+
+/* make group-hover progress bars feel lively (used in competitor bars) */
+.group:hover .group-hover-scale {
+  transform: scaleX(1.02);
+}
+
+/* small tweak: border + rounded look for cards */
+.card-strong {
+  border-radius: 12px;
+  border: 1px solid rgba(15,23,42,0.06);
+  background-clip: padding-box;
+}
+
+/* keep text rendering smooth when glows are present */
+body, .text-sm, .text-xs {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Auth visual framework */
+.auth-shell {
+  background:
+    radial-gradient(circle at 12% 10%, rgba(38, 217, 255, 0.16), transparent 30%),
+    radial-gradient(circle at 86% 8%, rgba(72, 247, 193, 0.1), transparent 26%),
+    linear-gradient(135deg, #040b14, #081625);
+}
+
+.auth-card {
+  background: linear-gradient(140deg, rgba(11, 22, 38, 0.76), rgba(7, 16, 30, 0.9));
+  border: 1px solid rgba(66, 215, 255, 0.25);
+  box-shadow:
+    0 0 0 1px rgba(9, 37, 56, 0.9) inset,
+    0 10px 44px rgba(2, 12, 26, 0.58),
+    0 0 22px rgba(38, 217, 255, 0.08);
+}
+
+.auth-visual-panel {
+  background: linear-gradient(165deg, rgba(9, 22, 36, 0.85) 0%, rgba(8, 27, 45, 0.9) 54%, rgba(10, 30, 48, 0.88) 100%);
+  border-left: 1px solid rgba(66, 215, 255, 0.2);
+}
+
+.auth-glyph-card {
+  border: 1px solid rgba(66, 215, 255, 0.18);
+  border-radius: 18px;
+  background: rgba(6, 21, 36, 0.72);
+  padding: 14px;
+}
+
+.auth-glyph-frame {
+  background: rgba(9, 26, 44, 0.82);
+  border-radius: 14px;
+  border: 1px solid rgba(66, 215, 255, 0.2);
+  height: 190px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-glyph-title {
+  margin-top: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #dff7ff;
+}
+
+.auth-glyph-copy {
+  margin-top: 4px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: rgba(191, 224, 238, 0.9);
+}
+
+/* --- ROICalculator small utility keyframes & neon shadows --- */
+
+@keyframes float-slow {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes pulse-slow {
+  0% { transform: scale(0.95); opacity: 0.35; }
+  50% { transform: scale(1.05); opacity: 0.18; }
+  100% { transform: scale(0.95); opacity: 0.35; }
+}
+
+/* slower pulse used behind revenue */
+.animate-pulse-slow { animation: pulse-slow 2.6s ease-in-out infinite; }
+
+/* neon shadow helpers (purple primary) */
+.shadow-neon-green { box-shadow: 0 8px 30px rgba(16,185,129,0.10), 0 0 20px rgba(16,185,129,0.06); }
+.shadow-neon-emerald { box-shadow: 0 8px 30px rgba(52,211,153,0.10), 0 0 20px rgba(52,211,153,0.06); }
+.shadow-neon-yellow { box-shadow: 0 8px 30px rgba(234,179,8,0.08), 0 0 18px rgba(234,179,8,0.05); }
+.shadow-neon-orange { box-shadow: 0 8px 30px rgba(249,115,22,0.08), 0 0 18px rgba(249,115,22,0.05); }
+
+/* subtle will-change hint */
+.will-change-transform { will-change: transform; }
+
+/* If you're using Tailwind JIT, you can add these under @layer utilities similarly. */
+
+/* ROI Calculator helpers */
+
+/* Pop animation (fast repeating) */
+@keyframes pop-fast {
+  0% { transform: translateY(0) scale(1); filter: drop-shadow(0 0 0 rgba(124,58,237,0)); }
+  20% { transform: translateY(-4px) scale(1.03); filter: drop-shadow(0 8px 24px rgba(124,58,237,0.06)); }
+  50% { transform: translateY(0) scale(1); filter: drop-shadow(0 6px 18px rgba(124,58,237,0.04)); }
+  100% { transform: translateY(0) scale(1); filter: drop-shadow(0 0 0 rgba(124,58,237,0)); }
+}
+
+/* Slightly slower pop (subtle) */
+@keyframes pop-slow {
+  0% { transform: scale(1); opacity: 1; }
+  30% { transform: scale(1.04); opacity: 3; }
+  60% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* apply fast pop */
+.animate-pop-fast {
+  animation: pop-fast 1s cubic-bezier(.2,.9,.2,1) infinite;
+}
+
+/* subtle pop variant if needed */
+.animate-pop-slow {
+  animation: pop-slow 2s cubic-bezier(.2,.9,.2,1) infinite;
+}
+
+/* neon shadow helpers */
+.shadow-neon-green { box-shadow: 0 8px 30px rgba(16,185,129,0.10), 0 0 20px rgba(16,185,129,0.06); }
+.shadow-neon-emerald { box-shadow: 0 8px 30px rgba(52,211,153,0.10), 0 0 20px rgba(52,211,153,0.06); }
+.shadow-neon-yellow { box-shadow: 0 8px 30px rgba(234,179,8,0.08), 0 0 18px rgba(234,179,8,0.05); }
+.shadow-neon-orange { box-shadow: 0 8px 30px rgba(249,115,22,0.08), 0 0 18px rgba(249,115,22,0.05); }
+
+/* subtle ambient pulse used elsewhere */
+@keyframes pulse-slow {
+  0% { transform: scale(0.96); opacity: 0.36; }
+  50% { transform: scale(1.03); opacity: 0.16; }
+  100% { transform: scale(0.96); opacity: 0.36; }
+}
+.animate-pulse-slow { animation: pulse-slow 2.6s ease-in-out infinite; }
+
+/* accessibility: reduce motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop-fast, .animate-pop-slow, .animate-pulse-slow {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* index.css - append this to your global CSS */
+
+/* Pop animation (fast repeating) */
+@keyframes pop-fast {
+  0% { transform: translateY(0) scale(1); filter: drop-shadow(0 0 0 rgba(124,58,237,0)); }
+  20% { transform: translateY(-4px) scale(1.03); filter: drop-shadow(0 8px 24px rgba(124,58,237,0.06)); }
+  50% { transform: translateY(0) scale(1); filter: drop-shadow(0 6px 18px rgba(124,58,237,0.04)); }
+  100% { transform: translateY(0) scale(1); filter: drop-shadow(0 0 0 rgba(124,58,237,0)); }
+}
+.animate-pop-fast { animation: pop-fast 1.1s cubic-bezier(.2,.9,.2,1) infinite; }
+
+/* neon shadows */
+.shadow-neon-emerald { box-shadow: 0 8px 30px rgba(16,185,129,0.10), 0 0 20px rgba(16,185,129,0.06); }
+.shadow-neon-yellow { box-shadow: 0 8px 30px rgba(234,179,8,0.08), 0 0 18px rgba(234,179,8,0.05); }
+.shadow-neon-orange { box-shadow: 0 8px 30px rgba(249,115,22,0.08), 0 0 18px rgba(249,115,22,0.05); }
+
+/* smooth blur helpers */
+.blur-36 { filter: blur(36px); }
+
+/* reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop-fast { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+}
+
+/* Unified biotech dark theme */
+:root {
+  --biotech-bg-a: #040b14;
+  --biotech-bg-b: #081625;
+  --biotech-panel: rgba(11, 22, 38, 0.75);
+  --biotech-panel-2: rgba(7, 16, 30, 0.88);
+  --biotech-border: rgba(66, 215, 255, 0.25);
+  --biotech-glow: rgba(58, 255, 234, 0.25);
+  --biotech-accent: #26d9ff;
+  --biotech-accent-2: #48f7c1;
+}
+
+body {
+  background:
+    radial-gradient(circle at 15% 12%, rgba(38, 217, 255, 0.18), transparent 24%),
+    radial-gradient(circle at 82% 18%, rgba(72, 247, 193, 0.14), transparent 26%),
+    linear-gradient(135deg, var(--biotech-bg-a), var(--biotech-bg-b));
+  color: #d6ecff;
+}
+
+.biotech-bg {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(38, 217, 255, 0.14), transparent 22%),
+    radial-gradient(circle at 84% 12%, rgba(72, 247, 193, 0.11), transparent 24%),
+    linear-gradient(120deg, #030811, #071325 52%, #0b1b2f);
+}
+
+.biotech-grid {
+  background-image:
+    linear-gradient(rgba(38, 217, 255, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(38, 217, 255, 0.07) 1px, transparent 1px);
+  background-size: 38px 38px;
+}
+
+.dash-surface,
+.dash-card,
+.glass {
+  background: linear-gradient(140deg, var(--biotech-panel), var(--biotech-panel-2));
+  border: 1px solid var(--biotech-border);
+  box-shadow:
+    0 0 0 1px rgba(9, 37, 56, 0.9) inset,
+    0 10px 44px rgba(2, 12, 26, 0.58),
+    0 0 22px rgba(38, 217, 255, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.btn-premium {
+  box-shadow: 0 8px 26px rgba(12, 180, 255, 0.28), 0 0 14px rgba(41, 247, 212, 0.16);
+}
+
+.section-title {
+  color: #e2f5ff;
+  text-shadow: 0 0 18px rgba(38, 217, 255, 0.25);
+}

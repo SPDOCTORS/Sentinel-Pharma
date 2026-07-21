@@ -1,0 +1,216 @@
+{
+  "dataset_path": "C:\\Users\\Senthil Kumar\\Downloads\\SentinelPharma-main\\SentinelPharma-main\\ai_engine\\data\\drugbank_seed_kg.csv",
+  "artifact_version": "v1779551195",
+  "holdout_ratio": 0.2,
+  "holdout_edges": 7,
+  "train_edges": 129,
+  "evaluated_cases": [
+    {
+      "drug": "Dapagliflozin",
+      "disease": "Type 2 Diabetes",
+      "rank": 11,
+      "top_predictions": [
+        {
+          "disease": "Asthma",
+          "score": 0.9485
+        },
+        {
+          "disease": "COVID-19",
+          "score": 0.9485
+        },
+        {
+          "disease": "Hypertension",
+          "score": 0.9332
+        },
+        {
+          "disease": "Hyperlipidemia",
+          "score": 0.9189
+        },
+        {
+          "disease": "Major Depressive Disorder",
+          "score": 0.9142
+        }
+      ]
+    },
+    {
+      "drug": "Pyrazinamide",
+      "disease": "Tuberculosis",
+      "rank": 6,
+      "top_predictions": [
+        {
+          "disease": "Rheumatoid Arthritis",
+          "score": 0.8788
+        },
+        {
+          "disease": "Asthma",
+          "score": 0.8673
+        },
+        {
+          "disease": "COVID-19",
+          "score": 0.8673
+        },
+        {
+          "disease": "Hypertension",
+          "score": 0.8574
+        },
+        {
+          "disease": "Pulmonary Fibrosis",
+          "score": 0.7804
+        }
+      ]
+    },
+    {
+      "drug": "Donepezil",
+      "disease": "Alzheimer Disease",
+      "rank": 12,
+      "top_predictions": [
+        {
+          "disease": "Rheumatoid Arthritis",
+          "score": 0.8788
+        },
+        {
+          "disease": "Asthma",
+          "score": 0.8673
+        },
+        {
+          "disease": "COVID-19",
+          "score": 0.8673
+        },
+        {
+          "disease": "Hypertension",
+          "score": 0.8574
+        },
+        {
+          "disease": "Pulmonary Fibrosis",
+          "score": 0.7804
+        }
+      ]
+    },
+    {
+      "drug": "Pembrolizumab",
+      "disease": "Non Small Cell Lung Cancer",
+      "rank": 7,
+      "top_predictions": [
+        {
+          "disease": "Rheumatoid Arthritis",
+          "score": 0.8788
+        },
+        {
+          "disease": "Asthma",
+          "score": 0.8673
+        },
+        {
+          "disease": "COVID-19",
+          "score": 0.8673
+        },
+        {
+          "disease": "Hypertension",
+          "score": 0.8574
+        },
+        {
+          "disease": "Pulmonary Fibrosis",
+          "score": 0.7804
+        }
+      ]
+    },
+    {
+      "drug": "Trastuzumab",
+      "disease": "Breast Cancer",
+      "rank": 8,
+      "top_predictions": [
+        {
+          "disease": "Rheumatoid Arthritis",
+          "score": 0.8788
+        },
+        {
+          "disease": "Asthma",
+          "score": 0.8673
+        },
+        {
+          "disease": "COVID-19",
+          "score": 0.8673
+        },
+        {
+          "disease": "Hypertension",
+          "score": 0.8574
+        },
+        {
+          "disease": "Pulmonary Fibrosis",
+          "score": 0.7804
+        }
+      ]
+    },
+    {
+      "drug": "Empagliflozin",
+      "disease": "Chronic Kidney Disease",
+      "rank": 6,
+      "top_predictions": [
+        {
+          "disease": "Asthma",
+          "score": 0.9377
+        },
+        {
+          "disease": "COVID-19",
+          "score": 0.9377
+        },
+        {
+          "disease": "Hypertension",
+          "score": 0.9188
+        },
+        {
+          "disease": "Hyperlipidemia",
+          "score": 0.8862
+        },
+        {
+          "disease": "Major Depressive Disorder",
+          "score": 0.8796
+        }
+      ]
+    },
+    {
+      "drug": "Letrozole",
+      "disease": "Breast Cancer",
+      "rank": 8,
+      "top_predictions": [
+        {
+          "disease": "Rheumatoid Arthritis",
+          "score": 0.8788
+        },
+        {
+          "disease": "Asthma",
+          "score": 0.8673
+        },
+        {
+          "disease": "COVID-19",
+          "score": 0.8673
+        },
+        {
+          "disease": "Hypertension",
+          "score": 0.8574
+        },
+        {
+          "disease": "Pulmonary Fibrosis",
+          "score": 0.7804
+        }
+      ]
+    }
+  ],
+  "metrics": {
+    "mrr": 0.1286,
+    "hits_at_1": 0.0,
+    "hits_at_3": 0.0,
+    "hits_at_5": 0.0,
+    "hits_at_10": 0.7143
+  },
+  "epochs": 60,
+  "learning_rate": 0.01,
+  "hidden_dim": 64,
+  "embedding_dim": 64,
+  "loss_history_tail": [
+    0.6671942472457886,
+    0.6884289383888245,
+    0.6729210615158081,
+    0.5827358961105347,
+    0.6794149279594421
+  ]
+}

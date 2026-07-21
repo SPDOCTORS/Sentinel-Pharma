@@ -1,0 +1,1090 @@
+[
+  {
+    "source": "Nintedanib",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "VEGFR2",
+    "target_type": "target",
+    "pdb_id": "3WZE"
+  },
+  {
+    "source": "Nintedanib",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Pulmonary Fibrosis",
+    "target_type": "disease",
+    "pdb_id": "3WZE"
+  },
+  {
+    "source": "Pirfenidone",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "TGFBR1",
+    "target_type": "target",
+    "pdb_id": "6B8Y"
+  },
+  {
+    "source": "Pirfenidone",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Pulmonary Fibrosis",
+    "target_type": "disease",
+    "pdb_id": "6B8Y"
+  },
+  {
+    "source": "Metformin",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "AMPK",
+    "target_type": "target",
+    "pdb_id": "4CFE"
+  },
+  {
+    "source": "Metformin",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Type 2 Diabetes",
+    "target_type": "disease",
+    "pdb_id": "4CFE"
+  },
+  {
+    "source": "Tofacitinib",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "JAK3",
+    "target_type": "target",
+    "pdb_id": "5WO4"
+  },
+  {
+    "source": "Tofacitinib",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Rheumatoid Arthritis",
+    "target_type": "disease",
+    "pdb_id": "5WO4"
+  },
+  {
+    "source": "Baricitinib",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "JAK1",
+    "target_type": "target",
+    "pdb_id": "4W9X"
+  },
+  {
+    "source": "Baricitinib",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Rheumatoid Arthritis",
+    "target_type": "disease",
+    "pdb_id": "4W9X"
+  },
+  {
+    "source": "Donepezil",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "ACHE",
+    "target_type": "target",
+    "pdb_id": "4EY7"
+  },
+  {
+    "source": "Donepezil",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Alzheimer Disease",
+    "target_type": "disease",
+    "pdb_id": "4EY7"
+  },
+  {
+    "source": "Semaglutide",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "GLP1R",
+    "target_type": "target",
+    "pdb_id": "5VEW"
+  },
+  {
+    "source": "Semaglutide",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Type 2 Diabetes",
+    "target_type": "disease",
+    "pdb_id": "5VEW"
+  },
+  {
+    "source": "Pioglitazone",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "PPARG",
+    "target_type": "target",
+    "pdb_id": "3V9V"
+  },
+  {
+    "source": "Pioglitazone",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Type 2 Diabetes",
+    "target_type": "disease",
+    "pdb_id": "3V9V"
+  },
+  {
+    "source": "VEGFR2",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Angiogenesis Pathway",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "TGFBR1",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "TGF-beta Signaling",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "AMPK",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Metabolic Stress Response",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "JAK3",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Cytokine Signaling",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "JAK1",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Interleukin Cascade",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "ACHE",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Cholinergic Synapse",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "GLP1R",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Insulin Signaling",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "PPARG",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Neuroinflammation Pathway",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "Angiogenesis Pathway",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Pulmonary Fibrosis",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "TGF-beta Signaling",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Pulmonary Fibrosis",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Metabolic Stress Response",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Rheumatoid Arthritis",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Cytokine Signaling",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Rheumatoid Arthritis",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Interleukin Cascade",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Rheumatoid Arthritis",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Cholinergic Synapse",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Alzheimer Disease",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Insulin Signaling",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Alzheimer Disease",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Neuroinflammation Pathway",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Alzheimer Disease",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Simvastatin",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "HMGCR",
+    "target_type": "target",
+    "pdb_id": "1HWK"
+  },
+  {
+    "source": "Simvastatin",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Hyperlipidemia",
+    "target_type": "disease",
+    "pdb_id": "1HWK"
+  },
+  {
+    "source": "HMGCR",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Lipid Signaling",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "Lipid Signaling",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Rheumatoid Arthritis",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Dapagliflozin",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "SGLT2",
+    "target_type": "target",
+    "pdb_id": "7VSI"
+  },
+  {
+    "source": "Dapagliflozin",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Type 2 Diabetes",
+    "target_type": "disease",
+    "pdb_id": "7VSI"
+  },
+  {
+    "source": "SGLT2",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Cardio-Renal Metabolic Pathway",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "Cardio-Renal Metabolic Pathway",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Pulmonary Fibrosis",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Rifampicin",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "RNAPB",
+    "target_type": "target",
+    "pdb_id": "5UHB"
+  },
+  {
+    "source": "Rifampicin",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Tuberculosis",
+    "target_type": "disease",
+    "pdb_id": "5UHB"
+  },
+  {
+    "source": "Isoniazid",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "INHA",
+    "target_type": "target",
+    "pdb_id": "2H7M"
+  },
+  {
+    "source": "Isoniazid",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Tuberculosis",
+    "target_type": "disease",
+    "pdb_id": "2H7M"
+  },
+  {
+    "source": "Pyrazinamide",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "PncA",
+    "target_type": "target",
+    "pdb_id": "3PL1"
+  },
+  {
+    "source": "Pyrazinamide",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Tuberculosis",
+    "target_type": "disease",
+    "pdb_id": "3PL1"
+  },
+  {
+    "source": "RNAPB",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Mycobacterial RNA Synthesis",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "INHA",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Mycolic Acid Biosynthesis",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "PncA",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Mycobacterial Energy Stress",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "Mycobacterial RNA Synthesis",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Tuberculosis",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Mycolic Acid Biosynthesis",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Tuberculosis",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Mycobacterial Energy Stress",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Tuberculosis",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Lisinopril",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "ACE",
+    "target_type": "target",
+    "pdb_id": "1O86"
+  },
+  {
+    "source": "Lisinopril",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Hypertension",
+    "target_type": "disease",
+    "pdb_id": "1O86"
+  },
+  {
+    "source": "Amlodipine",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "CACNA1C",
+    "target_type": "target",
+    "pdb_id": "6JP5"
+  },
+  {
+    "source": "Amlodipine",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Hypertension",
+    "target_type": "disease",
+    "pdb_id": "6JP5"
+  },
+  {
+    "source": "Losartan",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "AGTR1",
+    "target_type": "target",
+    "pdb_id": "4ZUD"
+  },
+  {
+    "source": "Losartan",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Hypertension",
+    "target_type": "disease",
+    "pdb_id": "4ZUD"
+  },
+  {
+    "source": "ACE",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Renin Angiotensin Signaling",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "CACNA1C",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Calcium Channel Signaling",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "AGTR1",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Vascular Tone Regulation",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "Renin Angiotensin Signaling",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Hypertension",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Calcium Channel Signaling",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Hypertension",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Vascular Tone Regulation",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Hypertension",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Albuterol",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "ADRB2",
+    "target_type": "target",
+    "pdb_id": "2RH1"
+  },
+  {
+    "source": "Albuterol",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Asthma",
+    "target_type": "disease",
+    "pdb_id": "2RH1"
+  },
+  {
+    "source": "Budesonide",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "NR3C1",
+    "target_type": "target",
+    "pdb_id": "4P6X"
+  },
+  {
+    "source": "Budesonide",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Asthma",
+    "target_type": "disease",
+    "pdb_id": "4P6X"
+  },
+  {
+    "source": "Montelukast",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "CYSLTR1",
+    "target_type": "target",
+    "pdb_id": "6RZ4"
+  },
+  {
+    "source": "Montelukast",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Asthma",
+    "target_type": "disease",
+    "pdb_id": "6RZ4"
+  },
+  {
+    "source": "ADRB2",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Bronchodilation Signaling",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "NR3C1",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Airway Inflammation Control",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "CYSLTR1",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Leukotriene Signaling",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "Bronchodilation Signaling",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Asthma",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Airway Inflammation Control",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Asthma",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Leukotriene Signaling",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Asthma",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Empagliflozin",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "SGLT2",
+    "target_type": "target",
+    "pdb_id": "7VSI"
+  },
+  {
+    "source": "Empagliflozin",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Chronic Kidney Disease",
+    "target_type": "disease",
+    "pdb_id": "7VSI"
+  },
+  {
+    "source": "Finerenone",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "NR3C2",
+    "target_type": "target",
+    "pdb_id": "2AA2"
+  },
+  {
+    "source": "Finerenone",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Chronic Kidney Disease",
+    "target_type": "disease",
+    "pdb_id": "2AA2"
+  },
+  {
+    "source": "Dapagliflozin",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Chronic Kidney Disease",
+    "target_type": "disease",
+    "pdb_id": "7VSI"
+  },
+  {
+    "source": "NR3C2",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Mineralocorticoid Inflammation",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "Cardio-Renal Metabolic Pathway",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Chronic Kidney Disease",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Mineralocorticoid Inflammation",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Chronic Kidney Disease",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Atorvastatin",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "HMGCR",
+    "target_type": "target",
+    "pdb_id": "1HWK"
+  },
+  {
+    "source": "Atorvastatin",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Hyperlipidemia",
+    "target_type": "disease",
+    "pdb_id": "1HWK"
+  },
+  {
+    "source": "Ezetimibe",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "NPC1L1",
+    "target_type": "target",
+    "pdb_id": "7DFZ"
+  },
+  {
+    "source": "Ezetimibe",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Hyperlipidemia",
+    "target_type": "disease",
+    "pdb_id": "7DFZ"
+  },
+  {
+    "source": "NPC1L1",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Cholesterol Absorption",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "Cholesterol Absorption",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Hyperlipidemia",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Lipid Signaling",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Hyperlipidemia",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Sertraline",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "SLC6A4",
+    "target_type": "target",
+    "pdb_id": "6AWO"
+  },
+  {
+    "source": "Sertraline",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Major Depressive Disorder",
+    "target_type": "disease",
+    "pdb_id": "6AWO"
+  },
+  {
+    "source": "Fluoxetine",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "SLC6A4",
+    "target_type": "target",
+    "pdb_id": "6AWO"
+  },
+  {
+    "source": "Fluoxetine",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Major Depressive Disorder",
+    "target_type": "disease",
+    "pdb_id": "6AWO"
+  },
+  {
+    "source": "Bupropion",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "SLC6A3",
+    "target_type": "target",
+    "pdb_id": "4M48"
+  },
+  {
+    "source": "Bupropion",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Major Depressive Disorder",
+    "target_type": "disease",
+    "pdb_id": "4M48"
+  },
+  {
+    "source": "SLC6A4",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Serotonin Transport",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "SLC6A3",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Dopamine Transport",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "Serotonin Transport",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Major Depressive Disorder",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Dopamine Transport",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Major Depressive Disorder",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Pembrolizumab",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "PDCD1",
+    "target_type": "target",
+    "pdb_id": "5GGS"
+  },
+  {
+    "source": "Pembrolizumab",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Non Small Cell Lung Cancer",
+    "target_type": "disease",
+    "pdb_id": "5GGS"
+  },
+  {
+    "source": "Osimertinib",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "EGFR",
+    "target_type": "target",
+    "pdb_id": "4ZAU"
+  },
+  {
+    "source": "Osimertinib",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Non Small Cell Lung Cancer",
+    "target_type": "disease",
+    "pdb_id": "4ZAU"
+  },
+  {
+    "source": "Crizotinib",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "ALK",
+    "target_type": "target",
+    "pdb_id": "2XP2"
+  },
+  {
+    "source": "Crizotinib",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Non Small Cell Lung Cancer",
+    "target_type": "disease",
+    "pdb_id": "2XP2"
+  },
+  {
+    "source": "PDCD1",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Immune Checkpoint Signaling",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "EGFR",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Growth Factor Signaling",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "ALK",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Oncogenic Kinase Signaling",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "Immune Checkpoint Signaling",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Non Small Cell Lung Cancer",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Growth Factor Signaling",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Non Small Cell Lung Cancer",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Oncogenic Kinase Signaling",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Non Small Cell Lung Cancer",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Letrozole",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "CYP19A1",
+    "target_type": "target",
+    "pdb_id": "3EQM"
+  },
+  {
+    "source": "Letrozole",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Breast Cancer",
+    "target_type": "disease",
+    "pdb_id": "3EQM"
+  },
+  {
+    "source": "Tamoxifen",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "ESR1",
+    "target_type": "target",
+    "pdb_id": "3ERT"
+  },
+  {
+    "source": "Tamoxifen",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Breast Cancer",
+    "target_type": "disease",
+    "pdb_id": "3ERT"
+  },
+  {
+    "source": "Trastuzumab",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "ERBB2",
+    "target_type": "target",
+    "pdb_id": "1N8Z"
+  },
+  {
+    "source": "Trastuzumab",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "Breast Cancer",
+    "target_type": "disease",
+    "pdb_id": "1N8Z"
+  },
+  {
+    "source": "CYP19A1",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Estrogen Biosynthesis",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "ESR1",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Estrogen Receptor Signaling",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "ERBB2",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "HER2 Signaling",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "Estrogen Biosynthesis",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Breast Cancer",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Estrogen Receptor Signaling",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Breast Cancer",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "HER2 Signaling",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "Breast Cancer",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Nirmatrelvir",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "SARSCoV2_MPRO",
+    "target_type": "target",
+    "pdb_id": "7VH8"
+  },
+  {
+    "source": "Nirmatrelvir",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "COVID-19",
+    "target_type": "disease",
+    "pdb_id": "7VH8"
+  },
+  {
+    "source": "Remdesivir",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "SARSCoV2_RdRp",
+    "target_type": "target",
+    "pdb_id": "7BV2"
+  },
+  {
+    "source": "Remdesivir",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "COVID-19",
+    "target_type": "disease",
+    "pdb_id": "7BV2"
+  },
+  {
+    "source": "Dexamethasone",
+    "source_type": "drug",
+    "relation": "targets",
+    "target": "NR3C1",
+    "target_type": "target",
+    "pdb_id": "4P6X"
+  },
+  {
+    "source": "Dexamethasone",
+    "source_type": "drug",
+    "relation": "treats",
+    "target": "COVID-19",
+    "target_type": "disease",
+    "pdb_id": "4P6X"
+  },
+  {
+    "source": "SARSCoV2_MPRO",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Viral Protease Processing",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "SARSCoV2_RdRp",
+    "source_type": "target",
+    "relation": "in_pathway",
+    "target": "Viral RNA Replication",
+    "target_type": "pathway",
+    "pdb_id": null
+  },
+  {
+    "source": "Viral Protease Processing",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "COVID-19",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Viral RNA Replication",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "COVID-19",
+    "target_type": "disease",
+    "pdb_id": null
+  },
+  {
+    "source": "Airway Inflammation Control",
+    "source_type": "pathway",
+    "relation": "associated_with",
+    "target": "COVID-19",
+    "target_type": "disease",
+    "pdb_id": null
+  }
+]

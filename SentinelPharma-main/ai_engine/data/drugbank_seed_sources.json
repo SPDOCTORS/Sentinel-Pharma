@@ -1,0 +1,34 @@
+{
+  "dataset": "SentinelPharma curated DrugBank-style seed knowledge graph",
+  "version": "2026-07-02",
+  "description": "Small deployable seed graph for disease-first drug repurposing demos. Entries are normalized to drug-target-pathway-disease triples and should be replaced or expanded with licensed DrugBank/ChEMBL/OpenTargets data for publication-grade use.",
+  "evidence_tiers": {
+    "validated": "Approved or widely accepted clinical use for the disease in the seed graph.",
+    "repurposed": "Existing drug with known clinical use that has been investigated or used in a new disease context.",
+    "predicted": "Graph-derived candidate requiring external validation."
+  },
+  "source_families": [
+    "FDA/EMA public labels and summaries",
+    "ClinicalTrials.gov records",
+    "PubMed biomedical literature",
+    "RCSB PDB structural references",
+    "DrugBank-style public schema conventions"
+  ],
+  "high_value_examples": [
+    {
+      "disease": "COVID-19",
+      "validated_or_repurposed_drugs": ["Nirmatrelvir", "Remdesivir", "Dexamethasone", "Baricitinib", "Tocilizumab", "Favipiravir"],
+      "why_it_matters": "Shows how existing antivirals and immunomodulators can be rapidly shortlisted during an outbreak."
+    },
+    {
+      "disease": "Pulmonary Fibrosis",
+      "validated_or_repurposed_drugs": ["Nintedanib", "Pirfenidone"],
+      "why_it_matters": "Demonstrates disease-first ranking against approved antifibrotic anchors."
+    },
+    {
+      "disease": "Rheumatoid Arthritis",
+      "validated_or_repurposed_drugs": ["Tofacitinib", "Baricitinib"],
+      "why_it_matters": "Provides cytokine/JAK pathway supervision for inflammatory disease transfer."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-label="Therapy icon">
+  <rect width="640" height="480" fill="#e5e7eb"/>
+  <g fill="#0b0f19">
+    <circle cx="260" cy="178" r="48"/>
+    <circle cx="316" cy="232" r="48"/>
+    <rect x="336" y="132" width="104" height="52" rx="26"/>
+    <rect x="370" y="238" width="56" height="190" rx="9" transform="rotate(45 398 333)"/>
+    <rect x="340" y="208" width="64" height="182" rx="9" transform="rotate(45 372 299)"/>
+    <rect x="322" y="294" width="48" height="9" rx="4" transform="rotate(45 346 298)" fill="#f8fafc"/>
+    <rect x="304" y="276" width="48" height="9" rx="4" transform="rotate(45 328 280)" fill="#f8fafc"/>
+    <rect x="286" y="258" width="48" height="9" rx="4" transform="rotate(45 310 262)" fill="#f8fafc"/>
+  </g>
+  <line x1="224" y1="145" x2="296" y2="217" stroke="#f8fafc" stroke-width="10"/>
+  <line x1="280" y1="200" x2="352" y2="272" stroke="#f8fafc" stroke-width="10"/>
+</svg>
