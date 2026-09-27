@@ -6,6 +6,7 @@
 
 const redis = require('redis');
 const isTest = process.env.NODE_ENV === 'test';
+let reportedUnavailable = false;
 
 // Redis client configuration
 const redisClient = redis.createClient({
@@ -17,14 +18,19 @@ const redisClient = redis.createClient({
       if (isTest) {
         return false;
       }
-      return Math.min(retries * 100, 3000);
+      // Cache is optional, but OTP endpoints explicitly reject requests while
+      // Redis is unavailable. Stop retrying to avoid unbounded log spam.
+      return retries >= 3 ? false : Math.min(retries * 250, 1000);
     }
   }
 });
 
 // Handle connection events
 redisClient.on('error', (err) => {
-  console.error('Redis Client Error:', err);
+  if (!reportedUnavailable) {
+    reportedUnavailable = true;
+    console.error('Redis unavailable; cache is degraded and OTP login is disabled:', err.message);
+  }
 });
 
 redisClient.on('connect', () => {
@@ -32,6 +38,7 @@ redisClient.on('connect', () => {
 });
 
 redisClient.on('ready', () => {
+  reportedUnavailable = false;
   console.log('✅ Redis client ready');
 });
 

@@ -25,6 +25,14 @@ Default local ports:
 
 ## Environment Setup
 
+The canonical local topology is client `5173`, Express `3001`, and FastAPI `8000`.
+FastAPI is an internal service in production: do not publish port 8000. Configure the same
+`INTERNAL_SERVICE_TOKEN` in `server/.env` and `ai_engine/.env`; Express sends it to FastAPI.
+For source-backed PubMed retrieval, set `NCBI_EMAIL` and optionally `NCBI_API_KEY` only in
+`ai_engine/.env`. The browser never receives either value. `PUBMED_MAX_RESULTS` defaults to 50.
+ClinicalTrials.gov uses its official public v2 API. Its timeout and result cap are controlled by
+`CLINICAL_TRIALS_TIMEOUT_SECONDS` and `CLINICAL_TRIALS_MAX_RESULTS` in `ai_engine/.env`.
+
 ### 1) Server
 
 From `server/`, create `.env` from `.env.example` and adjust values as needed:

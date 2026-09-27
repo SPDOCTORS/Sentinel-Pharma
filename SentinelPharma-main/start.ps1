@@ -74,7 +74,7 @@ Assert-PathExists $npmExe "npm executable"
 
 Write-Host "Cleaning up existing app listeners..." -ForegroundColor Yellow
 Stop-PortListener 3001
-Stop-PortListener 8002
+Stop-PortListener 8000
 Start-Sleep -Seconds 2
 
 $aiOut = Join-Path $logDir "ai.live.log"
@@ -82,16 +82,16 @@ $aiErr = Join-Path $logDir "ai.err.log"
 $serverOut = Join-Path $logDir "server.live.log"
 $serverErr = Join-Path $logDir "server.err.log"
 
-Write-Host "`n[1/2] Starting AI Engine on http://localhost:8002" -ForegroundColor Green
+Write-Host "`n[1/2] Starting AI Engine on http://localhost:8000" -ForegroundColor Green
 $aiProcess = Start-Process -FilePath $pythonExe `
-    -ArgumentList @("-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002") `
+    -ArgumentList @("-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000") `
     -WorkingDirectory $aiEnginePath `
     -WindowStyle Hidden `
     -RedirectStandardOutput $aiOut `
     -RedirectStandardError $aiErr `
     -PassThru
 
-if (-not (Wait-ForHttp "http://localhost:8002/health" "AI Engine")) {
+if (-not (Wait-ForHttp "http://localhost:8000/health" "AI Engine")) {
     Write-Host "AI stderr tail:" -ForegroundColor Yellow
     Get-Content $aiErr -Tail 40 -ErrorAction SilentlyContinue
     exit 1
@@ -116,7 +116,7 @@ Write-Host "`n========================================" -ForegroundColor Cyan
 Write-Host "SentinelPharma is running" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  App:       http://localhost:3001" -ForegroundColor White
-Write-Host "  AI Engine: http://localhost:8002" -ForegroundColor White
+Write-Host "  AI Engine: http://localhost:8000" -ForegroundColor White
 Write-Host "  Logs:      $logDir" -ForegroundColor White
 Write-Host "  AI PID:    $($aiProcess.Id)" -ForegroundColor White
 Write-Host "  API PID:   $($serverProcess.Id)" -ForegroundColor White

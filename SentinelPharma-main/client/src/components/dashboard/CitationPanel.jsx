@@ -23,54 +23,6 @@ import {
   Database
 } from 'lucide-react';
 
-// Mock citation database
-const MOCK_CITATIONS = {
-  clinical: [
-    {
-      id: 'PMID:34567890',
-      type: 'pubmed',
-      title: 'Phase III Trial Results for Drug Repurposing Candidate',
-      authors: 'Smith J, et al.',
-      journal: 'New England Journal of Medicine',
-      year: 2024,
-      url: 'https://pubmed.ncbi.nlm.nih.gov/34567890',
-      relevance: 0.95,
-      excerpt: 'The trial demonstrated significant efficacy with a 45% improvement in primary endpoint...'
-    },
-    {
-      id: 'NCT04123456',
-      type: 'clinicaltrials',
-      title: 'A Randomized Study of Repurposing Opportunity',
-      sponsor: 'National Cancer Institute',
-      phase: 'Phase 2',
-      status: 'Recruiting',
-      url: 'https://clinicaltrials.gov/study/NCT04123456',
-      relevance: 0.88
-    }
-  ],
-  patent: [
-    {
-      id: 'US10234567B2',
-      type: 'patent',
-      title: 'Methods and Compositions for Treatment',
-      assignee: 'Pfizer Inc.',
-      year: 2022,
-      url: 'https://patents.google.com/patent/US10234567B2',
-      relevance: 0.82
-    }
-  ],
-  market: [
-    {
-      id: 'IQVIA-2024-Q3',
-      type: 'market_report',
-      title: 'Global Pharmaceutical Market Report Q3 2024',
-      source: 'IQVIA',
-      year: 2024,
-      relevance: 0.90
-    }
-  ]
-};
-
 // Citable text component with hover functionality
 export const CitableText = ({ 
   text, 
@@ -83,7 +35,7 @@ export const CitableText = ({
   const textRef = useRef(null);
 
   const hasCitations = citations && citations.length > 0;
-  const confidence = confidenceScore || (hasCitations ? 0.85 + Math.random() * 0.1 : 0.6);
+  const confidence = confidenceScore;
 
   return (
     <span 
@@ -120,9 +72,8 @@ export const CitableText = ({
             <span className="text-xs font-medium text-gray-500">
               {citations.length} Source{citations.length > 1 ? 's' : ''}
             </span>
-            <div className={`flex items-center text-xs ${
-              confidence >= 0.8 ? 'text-green-600' : 
-              confidence >= 0.6 ? 'text-yellow-600' : 'text-red-600'
+            {confidence !== null && <div className={`flex items-center text-xs ${
+              confidence >= 0.8 ? 'text-green-600' : confidence >= 0.6 ? 'text-yellow-600' : 'text-red-600'
             }`}>
               {confidence >= 0.8 ? (
                 <CheckCircle2 className="w-3 h-3 mr-1" />
@@ -130,7 +81,7 @@ export const CitableText = ({
                 <AlertCircle className="w-3 h-3 mr-1" />
               )}
               {Math.round(confidence * 100)}% confidence
-            </div>
+            </div>}
           </div>
 
           <div className="space-y-2 max-h-40 overflow-y-auto">
@@ -144,10 +95,10 @@ export const CitableText = ({
                   <Database className="w-3 h-3 text-blue-500 mt-0.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-gray-900 truncate">
-                      {citation.title || citation.id}
+                      {citation.claim || citation.title || citation.sourceId || citation.id}
                     </div>
                     <div className="text-gray-500">
-                      {citation.type === 'pubmed' && `PubMed · ${citation.year}`}
+                      {(citation.sourceType === 'PUBMED' || citation.type === 'pubmed') && `PubMed · ${citation.publishedAt || citation.year || ''}`}
                       {citation.type === 'clinicaltrials' && `ClinicalTrials.gov · ${citation.phase}`}
                       {citation.type === 'patent' && `Patent · ${citation.assignee}`}
                     </div>
@@ -222,19 +173,19 @@ export const CitationSidebar = ({
 
         {/* Title */}
         <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-          {citation.title}
+          {citation.claim || citation.title}
         </h4>
 
         {/* Metadata */}
         <div className="space-y-2 mb-4">
-          {citation.authors && (
+          {(citation.metadata?.authors || citation.authors) && (
             <div className="text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-medium">Authors:</span> {citation.authors}
+              <span className="font-medium">Authors:</span> {Array.isArray(citation.metadata?.authors) ? citation.metadata.authors.join(', ') : citation.authors}
             </div>
           )}
-          {citation.journal && (
+          {(citation.metadata?.journal || citation.journal) && (
             <div className="text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-medium">Journal:</span> {citation.journal}
+              <span className="font-medium">Journal:</span> {citation.metadata?.journal || citation.journal}
             </div>
           )}
           {citation.sponsor && (
@@ -296,9 +247,9 @@ export const CitationSidebar = ({
         )}
 
         {/* Source Link */}
-        {citation.url && (
+        {(citation.sourceUrl || citation.url) && (
           <a
-            href={citation.url}
+            href={citation.sourceUrl || citation.url}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-between p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors group"
@@ -316,7 +267,7 @@ export const CitationSidebar = ({
       <div className="p-4 border-t border-gray-200 bg-gray-50">
         <div className="flex items-center space-x-2 text-xs text-gray-500">
           <CheckCircle2 className="w-4 h-4 text-green-500" />
-          <span>Source verified by SentinelPharma citation engine</span>
+          <span>Source identity verified; scientific validity has not been established.</span>
         </div>
       </div>
     </div>
@@ -336,26 +287,13 @@ const CitationPanel = ({
       return agentResults.citations;
     }
 
-    const citations = [];
-    
-    // Add mock citations based on agent results
-    if (agentResults?.clinical) {
-      citations.push(...MOCK_CITATIONS.clinical);
-    }
-    if (agentResults?.patent) {
-      citations.push(...MOCK_CITATIONS.patent);
-    }
-    if (agentResults?.market || agentResults?.iqvia) {
-      citations.push(...MOCK_CITATIONS.market);
-    }
-
-    return citations;
+    return [];
   };
 
   const citations = getAllCitations();
   const filteredCitations = selectedCategory === 'all' 
     ? citations 
-    : citations.filter(c => c.type === selectedCategory);
+    : citations.filter(c => c.type === selectedCategory || (selectedCategory === 'pubmed' && c.sourceType === 'PUBMED'));
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg dark:shadow-2xl overflow-hidden border border-gray-100 dark:border-slate-700">
@@ -397,7 +335,7 @@ const CitationPanel = ({
         {filteredCitations.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             <Database className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No citations in this category</p>
+            <p className="text-sm">No source-backed citations are available for this result.</p>
           </div>
         ) : (
           filteredCitations.map((citation, index) => (
@@ -410,20 +348,20 @@ const CitationPanel = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      citation.type === 'pubmed' ? 'bg-blue-100 text-blue-700' :
+                      (citation.sourceType === 'PUBMED' || citation.type === 'pubmed') ? 'bg-blue-100 text-blue-700' :
                       citation.type === 'clinicaltrials' ? 'bg-green-100 text-green-700' :
                       citation.type === 'patent' ? 'bg-purple-100 text-purple-700' :
                       'bg-gray-100 text-gray-700'
                     }`}>
-                      {citation.id}
+                      {citation.sourceId || citation.id}
                     </span>
-                    <span className="text-xs text-gray-400">{citation.year}</span>
+                    <span className="text-xs text-gray-400">{citation.publishedAt || citation.year}</span>
                   </div>
                   <div className="font-medium text-gray-900 text-sm truncate pr-4">
-                    {citation.title}
+                    {citation.claim || citation.title}
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
-                    {citation.authors || citation.sponsor || citation.assignee || citation.source}
+                    {Array.isArray(citation.metadata?.authors) ? citation.metadata.authors.join(', ') : (citation.authors || citation.sponsor || citation.assignee || citation.sourceName || citation.source)}
                   </div>
                 </div>
                 <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-blue-600 flex-shrink-0 mt-1" />
@@ -453,10 +391,7 @@ const CitationPanel = ({
       <div className="p-4 border-t border-gray-100 bg-gray-50">
         <div className="flex items-center justify-between text-xs text-gray-500">
           <span>{citations.length} sources referenced</span>
-          <span className="flex items-center">
-            <CheckCircle2 className="w-3 h-3 text-green-500 mr-1" />
-            All sources verified
-          </span>
+          <span>Source verification status is supplied by the backend.</span>
         </div>
       </div>
     </div>

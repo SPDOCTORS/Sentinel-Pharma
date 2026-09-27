@@ -23,6 +23,7 @@ const archivalRoutes = require('./routes/archivalRoutes');
 const authRoutes = require('./routes/authRoutes');
 const { attachAuthUser, requireAuth, requireRoles } = require('./middleware/auth');
 const { createRateLimiter, dynamicRateLimiter } = require('./utils/rateLimiter');
+const { redisClient } = require('./utils/redis');
 const { metricsMiddleware, metricsEndpoint } = require('./utils/metrics');
 const { cacheMiddleware } = require('./middleware/cache');
 const loadBalancer = require('./utils/loadBalancer');
@@ -175,12 +176,16 @@ app.get('/ready', async (req, res) => {
   const checks = {
     server: true,
     mongodb: false,
-    aiEngine: false
+    aiEngine: false,
+    redis: redisClient.isReady
   };
   const details = {
     server: { status: 'healthy', message: 'Server is running' },
     mongodb: { status: 'unknown', message: 'Checking...' },
-    aiEngine: { status: 'unknown', message: 'Checking...' }
+    aiEngine: { status: 'unknown', message: 'Checking...' },
+    redis: redisClient.isReady
+      ? { status: 'healthy', message: 'Connected' }
+      : { status: 'degraded', message: 'Cache unavailable; OTP authentication is disabled' }
   };
 
   try {

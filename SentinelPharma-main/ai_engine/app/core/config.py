@@ -24,10 +24,19 @@ class Settings(BaseSettings):
     APP_NAME: str = "SentinelPharma AI Engine"
     VERSION: str = "1.0.0"
     DEBUG: bool = False
+    DEMO_MODE: bool = False
     
     # Server
     HOST: str = "0.0.0.0"
     PORT: int = 8000
+    INTERNAL_SERVICE_TOKEN: Optional[str] = None
+    NCBI_TOOL_NAME: str = "sentinelpharma"
+    NCBI_EMAIL: str = ""
+    NCBI_API_KEY: Optional[str] = None
+    PUBMED_TIMEOUT_SECONDS: float = 10.0
+    PUBMED_MAX_RESULTS: int = 50
+    CLINICAL_TRIALS_TIMEOUT_SECONDS: float = 10.0
+    CLINICAL_TRIALS_MAX_RESULTS: int = 50
     
     # Cloud AI - Google Gemini
     GEMINI_API_KEY: Optional[str] = None

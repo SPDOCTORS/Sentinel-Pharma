@@ -32,14 +32,13 @@ import {
   Sparkles
 } from 'lucide-react';
 
-const VITE_ENV = typeof import.meta !== 'undefined' ? (import.meta.env || {}) : {};
-const NODE_ENV = (typeof process !== 'undefined' && process.env?.NODE_ENV) ? process.env.NODE_ENV : VITE_ENV.MODE;
-const IS_DEV = NODE_ENV === 'development';
+// Presentation fixtures are never rendered by this production component.
+const IS_DEV = false;
 
 const AgentDetailPanel = ({ agent, data, onClose, molecule }) => {
   if (!agent) return null;
 
-  // Generate comprehensive mock data based on molecule if no real data
+  // Legacy demo fixture. It is never selected in production rendering.
   const generateMockData = (agentName, drug) => {
     const mockDataByAgent = {
       'Master Orchestrator': {
@@ -158,11 +157,7 @@ const AgentDetailPanel = ({ agent, data, onClose, molecule }) => {
           { title: `${drug} shows promise in Phase 3 cardiovascular outcomes trial`, source: 'BioPharma Dive', date: '1 week ago' },
           { title: `New treatment guidelines recommend ${drug} as first-line therapy`, source: 'Medscape', date: '2 weeks ago' }
         ],
-        papers: [
-          { title: `Long-term efficacy and safety of ${drug}: A systematic review`, journal: 'NEJM', citations: 67 },
-          { title: `${drug} mechanism of action in metabolic disease`, journal: 'Nature Medicine', citations: 45 },
-          { title: `Real-world outcomes with ${drug} therapy`, journal: 'Lancet', citations: 38 }
-        ]
+        papers: []
       },
       'Regulatory Compliance': {
         compliance_score: 88,
@@ -255,7 +250,7 @@ const AgentDetailPanel = ({ agent, data, onClose, molecule }) => {
   // Debug: Log what data we received
   console.log(`[AgentDetailPanel] Agent: ${agent.name}, Data received:`, data ? 'YES' : 'NO', data);
   
-  const agentData = data || generateMockData(agent.name, molecule || 'Drug');
+  const agentData = data || {};
   const isRealData = !!data; // Track if we're using real or mock data
 
   const docs = agent.name === 'Internal Knowledge Agent'
@@ -1510,18 +1505,18 @@ const AgentDetailPanel = ({ agent, data, onClose, molecule }) => {
       <div className="bg-blue-50 rounded-xl p-4">
         <h4 className="font-semibold text-gray-900 mb-3">Scientific Publications</h4>
         <div className="space-y-2">
-          {(agentData.papers || [
-            { title: `Efficacy of ${molecule} in treatment-resistant cases`, journal: 'NEJM', citations: 45 },
-            { title: 'Long-term safety profile analysis', journal: 'Lancet', citations: 32 }
-          ]).map((paper, idx) => (
+          {(Array.isArray(agentData.papers) ? agentData.papers : []).map((paper, idx) => (
             <div key={idx} className="flex justify-between items-center bg-white rounded-lg p-3 border border-blue-200">
               <div>
-                <p className="font-medium text-gray-900 text-sm">{paper.title}</p>
-                <span className="text-xs text-blue-600">{paper.journal}</span>
+                <p className="font-medium text-gray-900 text-sm">{paper.claim || paper.title}</p>
+                <span className="text-xs text-blue-600">{paper.metadata?.journal || paper.journal}</span>
               </div>
-              <span className="text-sm text-gray-500">{paper.citations} citations</span>
+              {paper.sourceUrl && <a className="text-sm text-blue-600" href={paper.sourceUrl} target="_blank" rel="noreferrer">Open source</a>}
             </div>
           ))}
+          {!Array.isArray(agentData.papers) || agentData.papers.length === 0 ? (
+            <p className="text-sm text-gray-600">No source-backed literature evidence is available.</p>
+          ) : null}
         </div>
       </div>
     </div>

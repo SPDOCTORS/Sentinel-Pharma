@@ -137,6 +137,34 @@ export const researchService = {
     });
   },
 
+  searchPubMedEvidence: async (query, limit = 10) => {
+    return apiClient.post('/api/research/evidence/pubmed', { query, limit });
+  },
+
+  searchClinicalTrialsEvidence: async (drug, condition, limit = 10) => {
+    return apiClient.post('/api/research/evidence/clinical-trials', { drug, condition, limit });
+  },
+
+  getCandidateEvidence: async (candidate, disease, score, limit = 10) => {
+    return apiClient.post('/api/research/evidence/candidate', { candidate, disease, score, limit });
+  },
+
+  experimentalCandidates: async (drugId, topK = 10) => (
+    apiClient.get(`/api/research/experimental/repurposing/drugs/${encodeURIComponent(drugId)}/candidates`, { params: { top_k: topK } })
+  ),
+
+  experimentalCandidateDetail: async (drugId, diseaseId) => (
+    apiClient.get(`/api/research/experimental/repurposing/drugs/${encodeURIComponent(drugId)}/candidates/${encodeURIComponent(diseaseId)}`)
+  ),
+
+  experimentalKnownIndications: async (drugId) => (
+    apiClient.get(`/api/research/experimental/repurposing/drugs/${encodeURIComponent(drugId)}/known-indications`)
+  ),
+
+  experimentalEvidence: async (drugId, diseaseId) => (
+    apiClient.post('/api/research/experimental/repurposing/evidence', { drug_id: drugId, disease_id: diseaseId })
+  ),
+
   /**
    * Get GNN model status from backend passthrough endpoint
    */

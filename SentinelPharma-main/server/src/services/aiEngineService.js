@@ -11,6 +11,12 @@ const loadBalancer = require('../utils/loadBalancer');
 const aiClient = axios.create({
   timeout: 300000
 });
+const internalServiceHeaders = () => ({
+  'X-Service': 'sentinelpharma-server',
+  ...(process.env.INTERNAL_SERVICE_TOKEN
+    ? { 'X-Internal-Service-Token': process.env.INTERNAL_SERVICE_TOKEN }
+    : {})
+});
 
 // Request interceptor for logging
 aiClient.interceptors.request.use(
@@ -74,7 +80,7 @@ const analyzeCompound = async ({ molecule, mode, requestId, agents, provider }) 
       },
       headers: {
         'Content-Type': 'application/json',
-        'X-Service': 'sentinelpharma-server'
+        ...internalServiceHeaders()
       }
     });
 
@@ -92,12 +98,7 @@ const analyzeCompound = async ({ molecule, mode, requestId, agents, provider }) 
     return response.data;
 
   } catch (error) {
-    // If AI Engine is unavailable, return mock data for development
-    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
-      logger.warn('AI Engine unavailable, returning mock data', { requestId });
-      return getMockAnalysisResults(molecule, requestId);
-    }
-
+    logger.warn('AI Engine analysis unavailable', { requestId, error: error.message });
     throw error;
   }
 };
@@ -126,8 +127,8 @@ const getROICalculation = async (molecule, requestId) => {
     return response.data;
 
   } catch (error) {
-    logger.warn('ROI calculation failed, using mock data', { requestId });
-    return getMockROIData(molecule);
+    logger.warn('ROI calculation unavailable', { requestId, error: error.message });
+    throw error;
   }
 };
 
@@ -156,7 +157,7 @@ const getRepurposingModelStatus = async () => {
   const response = await loadBalancer.request('/api/gnn/status', {
     method: 'GET',
     headers: {
-      'X-Service': 'sentinelpharma-server'
+      ...internalServiceHeaders()
     }
   });
   return response.data;
@@ -177,7 +178,7 @@ const trainRepurposingModel = async ({ datasetPath = null, epochs = 120, learnin
     },
     headers: {
       'Content-Type': 'application/json',
-      'X-Service': 'sentinelpharma-server'
+      ...internalServiceHeaders()
     }
   });
   return response.data;
@@ -195,8 +196,59 @@ const discoverRepurposingCandidates = async ({ disease, topK = 5 }) => {
     },
     headers: {
       'Content-Type': 'application/json',
-      'X-Service': 'sentinelpharma-server'
+      ...internalServiceHeaders()
     }
+  });
+  return response.data;
+};
+
+/** Retrieve source-backed PubMed metadata through the internal AI service. */
+const searchPubMedEvidence = async ({ query, limit = 10 }) => {
+  const response = await loadBalancer.request('/api/evidence/pubmed/search', {
+    method: 'POST',
+    data: { query, limit },
+    timeout: 15000,
+    headers: {
+      'Content-Type': 'application/json',
+      ...internalServiceHeaders()
+    }
+  });
+  return response.data;
+};
+
+const searchClinicalTrialsEvidence = async ({ drug, condition, query, limit = 10 }) => {
+  const response = await loadBalancer.request('/api/evidence/clinical-trials/search', {
+    method: 'POST', data: { drug, condition, query, limit }, timeout: 15000,
+    headers: { 'Content-Type': 'application/json', ...internalServiceHeaders() }
+  });
+  return response.data;
+};
+
+/** Secure server-side proxy for the frozen experimental candidate API. */
+const experimentalCandidates = async ({ drugId, topK = 10 }) => {
+  const response = await loadBalancer.request(`/api/experimental/repurposing/drugs/${encodeURIComponent(drugId)}/candidates`, {
+    method: 'GET', params: { top_k: topK }, headers: internalServiceHeaders()
+  });
+  return response.data;
+};
+
+const experimentalCandidateDetail = async ({ drugId, diseaseId }) => {
+  const response = await loadBalancer.request(`/api/experimental/repurposing/drugs/${encodeURIComponent(drugId)}/candidates/${encodeURIComponent(diseaseId)}`, {
+    method: 'GET', headers: internalServiceHeaders()
+  });
+  return response.data;
+};
+
+const experimentalKnownIndications = async ({ drugId }) => {
+  const response = await loadBalancer.request(`/api/experimental/repurposing/drugs/${encodeURIComponent(drugId)}/known-indications`, {
+    method: 'GET', headers: internalServiceHeaders()
+  });
+  return response.data;
+};
+
+const experimentalEvidence = async ({ drugId, diseaseId }) => {
+  const response = await loadBalancer.request('/api/experimental/repurposing/evidence', {
+    method: 'POST', data: { drug_id: drugId, disease_id: diseaseId }, headers: { 'Content-Type': 'application/json', ...internalServiceHeaders() }
   });
   return response.data;
 };
@@ -213,7 +265,7 @@ const onlineUpdateRepurposingModel = async ({ relations, epochs = 25 }) => {
     },
     headers: {
       'Content-Type': 'application/json',
-      'X-Service': 'sentinelpharma-server'
+      ...internalServiceHeaders()
     }
   });
   return response.data;
@@ -301,5 +353,11 @@ module.exports = {
   getRepurposingModelStatus,
   trainRepurposingModel,
   discoverRepurposingCandidates,
+  searchPubMedEvidence,
+  searchClinicalTrialsEvidence,
+  experimentalCandidates,
+  experimentalCandidateDetail,
+  experimentalKnownIndications,
+  experimentalEvidence,
   onlineUpdateRepurposingModel
 };

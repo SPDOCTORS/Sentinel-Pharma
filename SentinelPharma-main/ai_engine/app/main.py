@@ -12,12 +12,14 @@ This engine provides:
 
 import os
 import random
+import secrets
+import json
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, Query, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -61,8 +63,12 @@ from app.agents.regulatory_agent import RegulatoryAgent
 from app.agents.patient_sentiment_agent import PatientSentimentAgent
 from app.agents.orchestrator import MasterOrchestrator
 from app.core.config import settings
+from app.core.evidence import unavailable_response
 from app.core.privacy_toggle import PrivacyManager
 from app.services.gnn import GNNRepurposingService
+from app.services.gnn.experimental_candidate_service import ExperimentalCandidateService
+from app.services.pubmed_service import PubMedService, PubMedUnavailable
+from app.services.clinical_trials_service import ClinicalTrialsService, ClinicalTrialsUnavailable
 
 
 # ======================
@@ -106,6 +112,20 @@ class ROIRequest(BaseModel):
     """Request model for ROI calculation"""
     molecule: str = Field(..., min_length=2, description="Name of the drug/compound")
     request_id: str = Field(..., description="Unique request identifier")
+
+
+class PubMedSearchRequest(BaseModel):
+    """Controlled literature query for the source-backed PubMed adapter."""
+    query: str = Field(..., min_length=2, max_length=500)
+    limit: int = Field(default=10, ge=1, le=50)
+
+
+class ClinicalTrialsSearchRequest(BaseModel):
+    """Controlled ClinicalTrials.gov search; at least one search term is required."""
+    drug: Optional[str] = Field(default=None, max_length=200)
+    condition: Optional[str] = Field(default=None, max_length=200)
+    query: Optional[str] = Field(default=None, max_length=500)
+    limit: int = Field(default=10, ge=1, le=50)
 
 
 class EXIMRequest(BaseModel):
@@ -192,6 +212,86 @@ class HealthResponse(BaseModel):
     mode_available: dict
 
 
+class ExperimentalEvidenceRequest(BaseModel):
+    """Explicit external-evidence request for an experimental candidate."""
+    drug_id: str = Field(..., min_length=1, max_length=200)
+    disease_id: str = Field(..., min_length=1, max_length=200)
+
+
+class ExperimentalEntity(BaseModel):
+    id: str
+    name: Optional[str] = None
+    entityType: Optional[str] = None
+
+
+class ExperimentalCandidatePrediction(BaseModel):
+    drug: ExperimentalEntity
+    disease: ExperimentalEntity
+    rank: int
+    modelScore: float
+    candidateStatus: str
+    provenance: str
+
+
+class ExperimentalModelLineage(BaseModel):
+    architecture: str
+    graphDatasetVersion: str
+    graphDatasetHash: str
+    checkpointHash: str
+    scoreSemantics: str
+
+
+class ExperimentalStructuralEvidence(BaseModel):
+    lookupStatus: str
+    supportStatus: str
+    graphDatasetVersion: Optional[str] = None
+    graphDatasetHash: Optional[str] = None
+    sharedTargets: list[ExperimentalEntity] = Field(default_factory=list)
+    sharedTargetCount: int = 0
+    pathways: list[ExperimentalEntity] = Field(default_factory=list)
+    sources: list[Any] = Field(default_factory=list)
+    reason: Optional[str] = None
+
+
+class ExperimentalExternalEvidence(BaseModel):
+    pubmed: dict[str, Any]
+    clinicalTrials: dict[str, Any]
+
+
+class ExperimentalCandidateResult(BaseModel):
+    candidate: ExperimentalCandidatePrediction
+    model: ExperimentalModelLineage
+    structuralEvidence: ExperimentalStructuralEvidence
+    externalEvidence: ExperimentalExternalEvidence
+    limitations: list[str]
+
+
+class ExperimentalCandidateRankingResponse(BaseModel):
+    experimental: bool
+    drug: ExperimentalEntity
+    candidateCount: int
+    candidates: list[ExperimentalCandidateResult]
+    model: ExperimentalModelLineage
+    structuralGraph: dict[str, str]
+    limitations: list[str]
+
+
+class ExperimentalKnownIndication(BaseModel):
+    drug: ExperimentalEntity
+    disease: ExperimentalEntity
+    candidateStatus: str
+    relationId: dict[str, str]
+    provenance: list[Any]
+
+
+class ExperimentalKnownIndicationsResponse(BaseModel):
+    experimental: bool
+    drug: ExperimentalEntity
+    indicationCount: int
+    indications: list[ExperimentalKnownIndication]
+    limitations: list[str]
+
+
 # ======================
 # APPLICATION LIFECYCLE
 # ======================
@@ -246,6 +346,72 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+
+# The experimental service is deliberately lazy: application startup and all
+# unrelated endpoints remain independent of the frozen research artifacts.
+_experimental_candidate_service: ExperimentalCandidateService | None = None
+_EXPERIMENTAL_V4_GRAPH = Path(__file__).resolve().parents[1] / "artifacts/biomedical_graph/phase2gc_frozen_full/biomedical_graph_v4_20260921T080028Z/graph.json"
+_EXPERIMENTAL_V5_GRAPH = Path(__file__).resolve().parents[1] / "artifacts/biomedical_graph/phase2p/biomedical_graph_v5_20260924T052339Z/graph.json"
+_EXPERIMENTAL_V4_ROBUST = Path(__file__).resolve().parents[1] / "artifacts/gnn/evaluations/v4_rgcn_robust_20260921T084017Z"
+
+
+def _get_experimental_candidate_service() -> ExperimentalCandidateService:
+    """Load the fixed V4 ranker and V5 evidence graph without downloading data."""
+    global _experimental_candidate_service
+    if _experimental_candidate_service is None:
+        _experimental_candidate_service = ExperimentalCandidateService(
+            _EXPERIMENTAL_V4_GRAPH,
+            _EXPERIMENTAL_V5_GRAPH,
+            _EXPERIMENTAL_V4_ROBUST,
+        )
+    return _experimental_candidate_service
+
+
+def _experimental_structural_evidence(value: dict[str, Any]) -> dict[str, Any]:
+    """Expose lookup availability separately from actual V5 structural support."""
+    lookup_status = value.get("status", "UNAVAILABLE")
+    available = lookup_status == "AVAILABLE"
+    has_support = bool(value.get("sharedTargetCount", 0) or value.get("pathways", []))
+    return {
+        "lookupStatus": "AVAILABLE" if available else "UNAVAILABLE",
+        "supportStatus": "SUPPORTED" if available and has_support else ("NO_STRUCTURAL_SUPPORT" if available else "UNAVAILABLE"),
+        "graphDatasetVersion": value.get("graphDatasetVersion"),
+        "graphDatasetHash": value.get("graphDatasetHash"),
+        "sharedTargets": value.get("sharedTargets", []),
+        "sharedTargetCount": value.get("sharedTargetCount", 0),
+        "pathways": value.get("pathways", []),
+        "sources": value.get("sources", []),
+        "reason": value.get("reason"),
+    }
+
+
+def _experimental_result(value: dict[str, Any]) -> dict[str, Any]:
+    """Map the internal service shape to the public, typed experimental contract."""
+    return {
+        "candidate": value["candidate"],
+        "model": value["model"],
+        "structuralEvidence": _experimental_structural_evidence(value["structuralEvidence"]),
+        "externalEvidence": value["externalEvidence"],
+        "limitations": [
+            *value["limitations"],
+            "MODEL_PREDICTION is experimental and is not verified biomedical evidence.",
+            "A modelScore is not a probability, confidence, likelihood, or clinical score.",
+            "NO_STRUCTURAL_SUPPORT does not establish ineffectiveness; structural support does not establish therapeutic efficacy.",
+            "This API is not clinical advice.",
+        ],
+    }
+
+
+def _experimental_http_error(error: ValueError) -> HTTPException:
+    """Return public-safe errors without exposing local artifact details."""
+    message = str(error).lower()
+    if "unknown or ambiguous drug" in message or "drug_id is required" in message:
+        return HTTPException(status_code=404, detail="Experimental drug was not found.")
+    if "known indication" in message or "not a v4 disease" in message:
+        return HTTPException(status_code=404, detail="Experimental candidate was not found.")
+    logger.warning("experimental_candidate_service_unavailable", reason=str(error))
+    return HTTPException(status_code=503, detail="Experimental candidate service is unavailable.")
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -281,6 +447,49 @@ async def log_requests(request: Request, call_next):
         duration_ms=round(duration, 2)
     )
     
+    return response
+
+
+@app.middleware("http")
+async def require_internal_service_token(request: Request, call_next):
+    """Protect every non-public AI endpoint behind the Express service boundary."""
+    public_paths = {"/", "/health", "/docs", "/openapi.json", "/redoc"}
+    if request.url.path in public_paths or request.url.path.startswith("/docs/"):
+        return await call_next(request)
+
+    expected = settings.INTERNAL_SERVICE_TOKEN
+    provided = request.headers.get("X-Internal-Service-Token", "")
+    if not expected or not secrets.compare_digest(provided, expected):
+        return JSONResponse(
+            status_code=401,
+            content={"success": False, "error": "Internal service authentication required", "dataMode": "ERROR"}
+        )
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def block_synthetic_research_in_production(request: Request, call_next):
+    """The existing agent implementations are demos until source adapters exist."""
+    synthetic_paths = (
+        "/api/analyze",
+        "/api/orchestrate",
+        "/api/agents/",
+    )
+    is_gnn = request.url.path.startswith("/api/gnn/")
+    is_synthetic_route = not is_gnn and request.url.path.startswith(synthetic_paths)
+    if not settings.DEMO_MODE and is_synthetic_route:
+        return JSONResponse(status_code=503, content=unavailable_response())
+    response = await call_next(request)
+    if settings.DEMO_MODE and is_synthetic_route and response.headers.get("content-type", "").startswith("application/json"):
+        body = b"".join([chunk async for chunk in response.body_iterator])
+        try:
+            payload = json.loads(body)
+            if isinstance(payload, dict):
+                payload.setdefault("dataMode", "DEMO_SYNTHETIC")
+                payload.setdefault("verificationStatus", "DEMO_ONLY")
+                return JSONResponse(status_code=response.status_code, content=payload)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
     return response
 
 
@@ -324,6 +533,142 @@ async def health_check():
     )
 
 
+@app.post("/api/evidence/pubmed/search")
+async def search_pubmed_evidence(request: PubMedSearchRequest):
+    """Retrieve publication metadata from PubMed without inferring scientific validity."""
+    try:
+        result = await PubMedService().search(request.query, request.limit)
+        return {
+            "success": True,
+            "dataMode": "SOURCE_BACKED",
+            "verificationStatus": "VERIFIED_SOURCE",
+            "source": "PubMed",
+            "query": result["query"],
+            "retrievedAt": result["retrievedAt"],
+            "count": len(result["evidence"]),
+            "evidence": result["evidence"],
+        }
+    except PubMedUnavailable:
+        return JSONResponse(
+            status_code=503,
+            content=unavailable_response(
+                "PUBMED_UNAVAILABLE",
+                "PubMed evidence retrieval is currently unavailable.",
+            ),
+        )
+
+
+@app.post("/api/evidence/clinical-trials/search")
+async def search_clinical_trials_evidence(request: ClinicalTrialsSearchRequest):
+    """Retrieve study metadata only; neither study status nor existence implies efficacy."""
+    try:
+        result = await ClinicalTrialsService().search(request.drug, request.condition, request.limit, request.query)
+        return {
+            "success": True, "dataMode": "SOURCE_BACKED", "verificationStatus": "VERIFIED_SOURCE",
+            "source": "ClinicalTrials.gov", "drug": result["drug"], "condition": result["condition"],
+            "query": result["query"], "retrievedAt": result["retrievedAt"],
+            "count": len(result["evidence"]), "evidence": result["evidence"],
+        }
+    except ClinicalTrialsUnavailable:
+        return JSONResponse(status_code=503, content=unavailable_response(
+            "CLINICAL_TRIALS_UNAVAILABLE", "ClinicalTrials.gov evidence retrieval is currently unavailable."))
+
+
+_EXPERIMENTAL_TAG = "Experimental Drug Repurposing"
+_EXPERIMENTAL_LIMITATIONS = [
+    "Experimental output only; it is not clinical decision support or clinical advice.",
+    "MODEL_PREDICTION is not verified biomedical evidence, and modelScore is not a probability.",
+    "Structural support does not establish therapeutic efficacy; no structural support does not establish ineffectiveness.",
+    "The absence of PubMed or ClinicalTrials.gov results does not establish ineffectiveness.",
+]
+
+
+@app.get(
+    "/api/experimental/repurposing/drugs/{drug_id}/candidates",
+    response_model=ExperimentalCandidateRankingResponse,
+    tags=[_EXPERIMENTAL_TAG],
+    summary="Rank experimental unobserved candidates using the frozen V4 R-GCN",
+    description=(
+        "Returns only UNOBSERVED_CANDIDATE entries with MODEL_PREDICTION provenance. "
+        "modelScore is an experimental model score, not a probability. V5 structural evidence is reported "
+        "separately; NO_STRUCTURAL_SUPPORT means a successful lookup found no shared targets or pathways."
+    ),
+)
+async def rank_experimental_candidates(
+    drug_id: str,
+    top_k: int = Query(default=10, ge=1, le=50, description="Number of experimental candidates, from 1 through 50."),
+):
+    """Offline ranking only; this endpoint does not invoke source adapters or HTTP clients."""
+    try:
+        results = [_experimental_result(item) for item in _get_experimental_candidate_service().rank_candidates(drug_id, top_k)]
+    except ValueError as error:
+        raise _experimental_http_error(error) from None
+    drug = results[0]["candidate"]["drug"]
+    return {
+        "experimental": True,
+        "drug": drug,
+        "candidateCount": len(results),
+        "candidates": results,
+        "model": results[0]["model"],
+        "structuralGraph": {
+            "graphDatasetVersion": "biomedical_graph_v5",
+            "graphDatasetHash": "9b8adde39a0b47ee77412ad8f9be965bedb3b5a077e82492c3ddb12c96dc8f90",
+        },
+        "limitations": _EXPERIMENTAL_LIMITATIONS,
+    }
+
+
+@app.get(
+    "/api/experimental/repurposing/drugs/{drug_id}/candidates/{disease_id}",
+    response_model=ExperimentalCandidateResult,
+    tags=[_EXPERIMENTAL_TAG],
+    summary="Read an offline experimental candidate and its separate V5 structural evidence",
+    description="MODEL_PREDICTION and V5 structural evidence remain separate. This endpoint performs no external evidence retrieval.",
+)
+async def get_experimental_candidate_detail(drug_id: str, disease_id: str):
+    try:
+        return _experimental_result(_get_experimental_candidate_service().get_candidate_details(drug_id, disease_id))
+    except ValueError as error:
+        raise _experimental_http_error(error) from None
+
+
+@app.get(
+    "/api/experimental/repurposing/drugs/{drug_id}/known-indications",
+    response_model=ExperimentalKnownIndicationsResponse,
+    tags=[_EXPERIMENTAL_TAG],
+    summary="Read source-backed known indications separately from experimental candidates",
+    description="Known indications are excluded from MODEL_PREDICTION ranking and retain their frozen source-backed provenance.",
+)
+async def get_experimental_known_indications(drug_id: str):
+    try:
+        indications = _get_experimental_candidate_service().get_known_indications(drug_id)
+    except ValueError as error:
+        raise _experimental_http_error(error) from None
+    drug = indications[0]["drug"] if indications else {"id": drug_id, "name": drug_id, "entityType": "DRUG"}
+    return {
+        "experimental": True,
+        "drug": drug,
+        "indicationCount": len(indications),
+        "indications": indications,
+        "limitations": _EXPERIMENTAL_LIMITATIONS,
+    }
+
+
+@app.post(
+    "/api/experimental/repurposing/evidence",
+    response_model=ExperimentalCandidateResult,
+    tags=[_EXPERIMENTAL_TAG],
+    summary="Explicitly enrich one experimental candidate with external evidence metadata",
+    description="This is the only experimental-repurposing endpoint that may call PubMed and ClinicalTrials.gov. Unavailable sources remain UNAVAILABLE and are never synthesized.",
+)
+async def enrich_experimental_candidate_evidence(request: ExperimentalEvidenceRequest):
+    try:
+        result = await _get_experimental_candidate_service().enrich_candidate_evidence(request.drug_id, request.disease_id)
+        return _experimental_result(result)
+    except ValueError as error:
+        raise _experimental_http_error(error) from None
+
+
 @app.post("/api/analyze")
 async def analyze_compound(request: AnalyzeRequest):
     """
@@ -341,6 +686,12 @@ async def analyze_compound(request: AnalyzeRequest):
     Returns:
         Aggregated analysis from all agents including ROI calculations
     """
+    if not settings.DEMO_MODE:
+        raise HTTPException(
+            status_code=503,
+            detail="Research execution is unavailable until source-backed agents are configured. Set DEMO_MODE=true only for clearly labelled synthetic demonstrations."
+        )
+
     logger.info(
         "analyze_request_received",
         molecule=request.molecule,
@@ -557,7 +908,7 @@ async def analyze_compound(request: AnalyzeRequest):
             request_id=request.request_id,
             agents_count=len(results["agents_executed"])
         )
-        
+        results["dataMode"] = "DEMO_SYNTHETIC"
         return results
         
     except Exception as e:
@@ -579,6 +930,9 @@ async def get_market_intelligence(request: ROIRequest):
     
     Returns detailed market analysis and commercial projections.
     """
+    if not settings.DEMO_MODE:
+        raise HTTPException(status_code=503, detail="Market intelligence is unavailable without source-backed providers.")
+
     logger.info(
         "market_intelligence_requested",
         molecule=request.molecule,
@@ -598,6 +952,7 @@ async def get_market_intelligence(request: ROIRequest):
         
         return {
             "success": True,
+            "dataMode": "DEMO_SYNTHETIC",
             "request_id": request.request_id,
             "data": result
         }
@@ -1070,11 +1425,14 @@ async def gnn_repurpose_prediction(request: GNNRepurposeRequest):
         result = gnn_service.predict(request.disease, request.top_k)
         return {
             "success": True,
+            "dataMode": "MODEL_PREDICTION",
             "model": result["model"],
             "disease": result["disease"],
             "candidates": result["candidates"],
             "metadata": {
                 "mode": "gnn-link-prediction",
+                "modelVersion": result["model"],
+                "generatedAt": datetime.now().isoformat(),
                 "evidenceFormat": "drug -> target/pathway -> disease"
             }
         }

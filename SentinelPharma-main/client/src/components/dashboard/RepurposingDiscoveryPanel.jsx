@@ -1,6 +1,7 @@
 import React from 'react';
 import { FlaskConical, Loader2, AlertCircle, Atom, Network, Microscope, ExternalLink, Activity, Clock3 } from 'lucide-react';
 import EmbeddedMoleculeViewer from './EmbeddedMoleculeViewer';
+import EvidenceModeBadge from '../ui/EvidenceModeBadge';
 
 const scoreColor = (score) => {
   if (score >= 0.85) return 'text-emerald-200 bg-emerald-500/20 border-emerald-300/40';
@@ -40,7 +41,10 @@ const RepurposingDiscoveryPanel = ({
   onSubmit,
   loading,
   error,
-  data
+  data,
+  candidateEvidence = {},
+  candidateEvidenceLoading = {},
+  onLoadCandidateEvidence
 }) => {
   const outbreakPresets = [
     'COVID-19',
@@ -169,6 +173,7 @@ const RepurposingDiscoveryPanel = ({
             <span className="text-xs text-cyan-100/90 bg-cyan-500/15 border border-cyan-300/30 px-2 py-1 rounded-md">
               Model: {data.model}
             </span>
+            <EvidenceModeBadge dataMode={data.dataMode || 'MODEL_PREDICTION'} />
           </div>
           <div className="rounded-2xl border border-cyan-300/20 bg-slate-950/45 p-3 text-xs text-cyan-100/75">
             <span className="font-semibold text-emerald-200">Validated</span> means a direct drug-disease edge exists in the curated graph.
@@ -199,6 +204,38 @@ const RepurposingDiscoveryPanel = ({
                 </div>
 
                 <p className="text-sm text-cyan-100/80">{candidate.rationale}</p>
+
+                <div className="rounded-lg border border-violet-300/30 p-3 bg-slate-950/45 text-xs">
+                  <div className="font-semibold text-violet-200">MODEL PREDICTION</div>
+                  <div className="text-cyan-100/75 mt-1">Ranking score: {(candidate.score * 100).toFixed(1)}%. This is a model prediction, not verified source evidence.</div>
+                </div>
+
+                <button type="button" onClick={() => onLoadCandidateEvidence?.(candidate)} disabled={candidateEvidenceLoading[candidate.drug]}
+                  className="text-xs px-3 py-2 rounded-lg border border-cyan-300/35 text-cyan-100 hover:bg-cyan-400/15 disabled:opacity-60">
+                  {candidateEvidenceLoading[candidate.drug] ? 'Loading source evidence…' : 'Load literature and clinical trials'}
+                </button>
+
+                {candidateEvidence[candidate.drug]?.error && <p className="text-xs text-rose-200">{candidateEvidence[candidate.drug].error}</p>}
+                {candidateEvidence[candidate.drug]?.candidateEvidence && (() => {
+                  const sourceData = candidateEvidence[candidate.drug];
+                  const trials = sourceData.clinicalTrialEvidence || [];
+                  return <div className="space-y-2 text-xs">
+                    <div className="rounded-lg border border-blue-300/30 p-3 bg-slate-950/45">
+                      <div className="font-semibold text-blue-200">LITERATURE EVIDENCE</div>
+                      <p className="text-cyan-100/75 mt-1">{sourceData.candidateEvidence.evidenceSummary.pubmedCount} PubMed source records. Co-mention is not evidence of efficacy.</p>
+                    </div>
+                    <div className="rounded-lg border border-emerald-300/30 p-3 bg-slate-950/45">
+                      <div className="font-semibold text-emerald-200">CLINICAL TRIALS</div>
+                      <p className="text-cyan-100/75 mt-1">{sourceData.candidateEvidence.evidenceSummary.clinicalTrialCount} ClinicalTrials.gov source records.</p>
+                      {trials.map((trial) => <div key={trial.sourceId} className="mt-2 border-t border-emerald-300/15 pt-2">
+                        <div className="font-semibold text-emerald-100">{trial.sourceId} · {trial.claim}</div>
+                        <div className="text-cyan-100/75">{trial.metadata?.overallStatus || 'Status unavailable'}{trial.metadata?.phases?.length ? ` · ${trial.metadata.phases.join(', ')}` : ''}</div>
+                        <div className="text-cyan-100/75">Results posted: {trial.metadata?.hasResults === true ? 'Yes' : trial.metadata?.hasResults === false ? 'No' : 'Unavailable'}</div>
+                        <a href={trial.sourceUrl} target="_blank" rel="noreferrer" className="text-cyan-300 hover:text-cyan-200">Open ClinicalTrials.gov source</a>
+                      </div>)}
+                    </div>
+                  </div>;
+                })()}
 
                 {(candidate.existingUse || candidate.emergencyFit || candidate.nextStep) && (
                   <div className="grid gap-2 text-xs">

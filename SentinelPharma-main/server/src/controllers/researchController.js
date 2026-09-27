@@ -18,6 +18,8 @@ const path = require('path');
 const { logger, auditLog } = require('../utils/logger');
 const aiEngineService = require('../services/aiEngineService');
 const { ResearchReport } = require('../models');
+const { filterEvidenceForProductionReport, summarizeDataModes } = require('../utils/evidencePolicy');
+const { buildCandidateEvidenceSummary } = require('../utils/candidateEvidence');
 
 // Lightweight in-memory request store for live status/report preview lookup.
 const requestStore = new Map();
@@ -123,47 +125,7 @@ const buildValidationLayer = (analysisResults = {}, molecule) => {
   };
 };
 
-const buildCitations = (molecule) => ([
-  {
-    id: 'PMID:39325460',
-    type: 'pubmed',
-    title: 'Knowledge Graphs for drug repurposing: a review of databases and methods',
-    authors: 'Review authors',
-    journal: 'Current review literature',
-    year: 2024,
-    url: 'https://pubmed.ncbi.nlm.nih.gov/39325460/',
-    relevance: 0.94,
-    excerpt: `Knowledge-graph methods provide a systematic basis for repurposing hypotheses relevant to ${molecule}.`
-  },
-  {
-    id: 'PMID:39914071',
-    type: 'pubmed',
-    title: 'Knowledge graph applications and multi-relation learning for drug repurposing',
-    authors: 'Scoping review authors',
-    journal: 'Scoping review',
-    year: 2025,
-    url: 'https://pubmed.ncbi.nlm.nih.gov/39914071/',
-    relevance: 0.9,
-    excerpt: 'Multi-relation graph learning improves interpretability when ranking repurposing candidates.'
-  },
-  {
-    id: 'NCT04123456',
-    type: 'clinicaltrials',
-    title: `${molecule} retrospective signal-matching protocol`,
-    sponsor: 'SentinelPharma benchmark protocol',
-    phase: 'Retrospective',
-    status: 'Concept',
-    relevance: 0.72
-  },
-  {
-    id: 'BENCH-TXGNN',
-    type: 'market_report',
-    title: 'Benchmark comparison against KG-based repurposing baselines',
-    source: 'SentinelPharma benchmark suite',
-    year: 2026,
-    relevance: 0.87
-  }
-]);
+const buildCitations = (analysisResults = {}) => filterEvidenceForProductionReport(analysisResults.citations);
 
 const buildRecommendationDossier = (molecule, analysisResults = {}, validation = {}, citations = []) => {
   const pathways = analysisResults?.knowledge_graph?.key_pathways || ['PI3K/AKT', 'MAPK/ERK', 'JAK/STAT'];
@@ -433,12 +395,6 @@ const processResearch = async (req, res) => {
   const requestId = uuidv4();
   const startTime = Date.now();
 
-  console.log('DEBUG: processResearch called with:', {
-    body: req.body,
-    headers: req.headers,
-    requestId
-  });
-
   try {
     const { molecule, mode = 'cloud', provider = null } = req.body;
 
@@ -472,22 +428,7 @@ const processResearch = async (req, res) => {
       logger.info('AI provider specified', { provider, requestId });
     }
 
-    // Determine which AI endpoint to use based on mode
-    const aiConfig = {
-      secure: {
-        endpoint: '/api/analyze/local',
-        model: 'llama3-local',
-        description: 'Local Secure Mode - Data never leaves premises'
-      },
-      cloud: {
-        endpoint: '/api/analyze/cloud',
-        model: 'gemini-2.0-flash-exp',
-        description: 'Cloud Mode - Using Google Gemini'
-      }
-    };
-
-    const config = aiConfig[mode];
-    logger.info(`Using AI configuration: ${config.description}`, { requestId });
+    logger.info('Using canonical AI analysis endpoint', { requestId, mode, endpoint: '/api/analyze' });
 
     // Call Python AI Engine for analysis
     auditLog.agentActivity('Orchestrator', 'DISPATCHING_AGENTS', { 
@@ -506,7 +447,7 @@ const processResearch = async (req, res) => {
       provider
     });
 
-    const citations = buildCitations(molecule);
+    const citations = buildCitations(analysisResults);
     const validation = analysisResults?.validation || buildValidationLayer(analysisResults, molecule);
     const recommendationDossier = buildRecommendationDossier(molecule, analysisResults, validation, citations);
     const benchmarking = buildBenchmarking(molecule, analysisResults, validation);
@@ -516,6 +457,7 @@ const processResearch = async (req, res) => {
       ...analysisResults,
       validation,
       citations,
+      dataModes: summarizeDataModes(citations),
       recommendation_dossier: recommendationDossier,
       benchmarking,
       retrospective_case_studies: retrospectiveCaseStudies,
@@ -532,6 +474,7 @@ const processResearch = async (req, res) => {
 
     const responsePayload = {
       success: true,
+      dataMode: analysisResults.dataMode || 'MODEL_PREDICTION',
       requestId,
       molecule,
       processingMode: mode,
@@ -603,8 +546,10 @@ const processResearch = async (req, res) => {
 
     auditLog.apiResponse(requestId, 500, duration);
 
-    return res.status(500).json({
+    return res.status(503).json({
       success: false,
+      dataMode: 'UNAVAILABLE',
+      errorCode: 'RESEARCH_ENGINE_UNAVAILABLE',
       error: 'Research processing failed',
       message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
       requestId
@@ -851,6 +796,7 @@ const discoverRepurposingCandidates = async (req, res) => {
 
       return res.status(200).json({
         success: true,
+        dataMode: 'MODEL_PREDICTION',
         requestId,
         disease: gnnResponse.disease || disease,
         model: gnnResponse.model,
@@ -863,13 +809,20 @@ const discoverRepurposingCandidates = async (req, res) => {
       });
     } catch (engineError) {
       const fallbackReason = getGnnFallbackReason(engineError, disease);
-      logger.warn('GNN discovery fallback activated', {
+      logger.warn('GNN discovery unavailable', {
         requestId,
         disease,
         code: fallbackReason.code,
         error: fallbackReason.engineDetail
       });
-      return res.status(200).json(buildFallbackRepurposingResponse(requestId, disease, topK, fallbackReason));
+      return res.status(503).json({
+        success: false,
+        dataMode: 'UNAVAILABLE',
+        errorCode: fallbackReason.code || 'GNN_UNAVAILABLE',
+        requestId,
+        disease,
+        error: 'GNN candidate discovery is unavailable; no substitute candidates were returned.'
+      });
     }
   } catch (error) {
     logger.error('Disease-first repurposing discovery failed', {
@@ -884,6 +837,88 @@ const discoverRepurposingCandidates = async (req, res) => {
       error: 'Failed to discover repurposing candidates'
     });
   }
+};
+
+/** Retrieve publication metadata only; this endpoint makes no clinical-validity claim. */
+const searchPubMedEvidence = async (req, res) => {
+  try {
+    const result = await aiEngineService.searchPubMedEvidence({
+      query: req.body.query,
+      limit: req.body.limit || 10
+    });
+    return res.status(200).json(result);
+  } catch (error) {
+    logger.warn('PubMed evidence retrieval unavailable', { error: error.message });
+    return res.status(503).json({
+      success: false,
+      dataMode: 'UNAVAILABLE',
+      error: {
+        code: 'PUBMED_UNAVAILABLE',
+        message: 'PubMed evidence retrieval is currently unavailable.'
+      }
+    });
+  }
+};
+
+const searchClinicalTrialsEvidence = async (req, res) => {
+  try {
+    const result = await aiEngineService.searchClinicalTrialsEvidence(req.body);
+    return res.status(200).json(result);
+  } catch (error) {
+    logger.warn('ClinicalTrials.gov evidence retrieval unavailable', { error: error.message });
+    return res.status(503).json({ success: false, dataMode: 'UNAVAILABLE', error: {
+      code: 'CLINICAL_TRIALS_UNAVAILABLE', message: 'ClinicalTrials.gov evidence retrieval is currently unavailable.'
+    }});
+  }
+};
+
+const getCandidateEvidence = async (req, res) => {
+  const { candidate, disease, score, limit = 10 } = req.body;
+  try {
+    const [pubmed, clinicalTrials] = await Promise.all([
+      aiEngineService.searchPubMedEvidence({ query: `${candidate} ${disease}`, limit }),
+      aiEngineService.searchClinicalTrialsEvidence({ drug: candidate, condition: disease, limit })
+    ]);
+    return res.json({ success: true, candidateEvidence: buildCandidateEvidenceSummary(
+      candidate, { score }, pubmed.evidence || [], clinicalTrials.evidence || [], disease),
+      literatureEvidence: pubmed.evidence || [], clinicalTrialEvidence: clinicalTrials.evidence || [] });
+  } catch (error) {
+    logger.warn('Candidate evidence retrieval unavailable', { error: error.message });
+    return res.status(503).json({ success: false, dataMode: 'UNAVAILABLE', error: {
+      code: 'CANDIDATE_EVIDENCE_UNAVAILABLE', message: 'Candidate evidence retrieval is currently unavailable.'
+    }});
+  }
+};
+
+const experimentalFailure = (res, error) => {
+  const status = error.response?.status || 503;
+  const message = status === 404 ? 'The requested experimental record was not found.' : 'Experimental repurposing is currently unavailable.';
+  logger.warn('Experimental repurposing proxy unavailable', { status, error: error.message });
+  return res.status(status).json({ success: false, dataMode: 'UNAVAILABLE', error: message });
+};
+
+const getExperimentalCandidates = async (req, res) => {
+  try {
+    return res.json(await aiEngineService.experimentalCandidates({ drugId: req.params.drugId, topK: req.query.top_k || 10 }));
+  } catch (error) { return experimentalFailure(res, error); }
+};
+
+const getExperimentalCandidateDetail = async (req, res) => {
+  try {
+    return res.json(await aiEngineService.experimentalCandidateDetail({ drugId: req.params.drugId, diseaseId: req.params.diseaseId }));
+  } catch (error) { return experimentalFailure(res, error); }
+};
+
+const getExperimentalKnownIndications = async (req, res) => {
+  try {
+    return res.json(await aiEngineService.experimentalKnownIndications({ drugId: req.params.drugId }));
+  } catch (error) { return experimentalFailure(res, error); }
+};
+
+const getExperimentalEvidence = async (req, res) => {
+  try {
+    return res.json(await aiEngineService.experimentalEvidence({ drugId: req.body.drug_id, diseaseId: req.body.disease_id }));
+  } catch (error) { return experimentalFailure(res, error); }
 };
 
 /**
@@ -1089,6 +1124,13 @@ const healthCheck = async (req, res) => {
 module.exports = {
   processResearch,
   discoverRepurposingCandidates,
+  searchPubMedEvidence,
+  searchClinicalTrialsEvidence,
+  getCandidateEvidence,
+  getExperimentalCandidates,
+  getExperimentalCandidateDetail,
+  getExperimentalKnownIndications,
+  getExperimentalEvidence,
   getRepurposingModelStatus,
   trainRepurposingModel,
   onlineUpdateRepurposingModel,

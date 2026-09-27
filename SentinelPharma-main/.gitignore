@@ -55,3 +55,14 @@ coverage.xml
 # Build artifacts
 *.pyc
 *.pyo
+# Generated biomedical / ML artifacts
+ai_engine/artifacts/
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Test/build output
+*.out
+*.err

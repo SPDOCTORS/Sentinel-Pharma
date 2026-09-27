@@ -10,6 +10,23 @@ const mongoose = require('mongoose');
 const { ResearchReport, User, AuditLog } = require('../models');
 const { logger } = require('../utils/logger');
 const PDFDocument = require('pdfkit');
+const { normalizeLegacyEvidence, summarizeDataModes } = require('../utils/evidencePolicy');
+
+// Historical records predate the provenance contract. Normalize only the response;
+// stored reports remain unchanged for auditability.
+const normalizeReportEvidence = (report) => {
+  const plain = typeof report?.toObject === 'function' ? report.toObject() : report;
+  const citations = Array.isArray(plain?.results?.citations) ? plain.results.citations : [];
+  const normalizedCitations = citations.map(normalizeLegacyEvidence);
+  return {
+    ...plain,
+    evidence: {
+      citations: normalizedCitations,
+      verificationStatus: normalizedCitations.length ? 'LEGACY_UNVERIFIED' : 'UNAVAILABLE',
+      dataModes: summarizeDataModes(normalizedCitations)
+    }
+  };
+};
 
 const normalizeSummary = (summary = {}) => ({
   overallAssessment: summary.overallAssessment || summary.overall_assessment || '',
@@ -207,7 +224,7 @@ const getReport = async (req, res) => {
 
     res.json({
       success: true,
-      data: report
+      data: normalizeReportEvidence(report)
     });
 
   } catch (error) {
@@ -266,7 +283,7 @@ const listReports = async (req, res) => {
     // Execute query
     const [reports, total] = await Promise.all([
       ResearchReport.find(filter)
-        .select('requestId molecule query processingMode status createdAt updatedAt summary.overallAssessment agentsExecuted totalProcessingTimeMs pdfGenerated')
+        .select('requestId molecule query processingMode status createdAt updatedAt summary.overallAssessment agentsExecuted totalProcessingTimeMs pdfGenerated results.citations')
         .sort(sort)
         .skip(skip)
         .limit(parseInt(limit))
@@ -277,7 +294,7 @@ const listReports = async (req, res) => {
     res.json({
       success: true,
       data: {
-        reports,
+        reports: reports.map(normalizeReportEvidence),
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -856,5 +873,6 @@ module.exports = {
   restoreReport,
   exportReportPDF,
   shareReport,
-  unshareReport
+  unshareReport,
+  normalizeReportEvidence
 };

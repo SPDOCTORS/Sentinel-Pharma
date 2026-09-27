@@ -2,20 +2,13 @@ const crypto = require('crypto');
 
 const TOKEN_HEADER = { alg: 'HS256', typ: 'JWT' };
 const isProduction = process.env.NODE_ENV === 'production';
-const TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET || (
-  isProduction
-    ? crypto.randomBytes(32).toString('hex')
-    : 'sentinelpharma-dev-secret'
-);
+if (isProduction && !process.env.AUTH_TOKEN_SECRET) {
+  throw new Error('AUTH_TOKEN_SECRET must be set when NODE_ENV=production');
+}
+
+const TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET || 'sentinelpharma-dev-secret';
 const TOKEN_TTL_SECONDS = Number(process.env.AUTH_TOKEN_TTL_SECONDS || 60 * 60 * 12);
 
-if (isProduction && !process.env.AUTH_TOKEN_SECRET) {
-  // Fail-safe hardening: never use a shared static secret in production.
-  // Ephemeral secret keeps tokens signed securely but invalidates on restart.
-  // Deployments should set AUTH_TOKEN_SECRET for stable sessions.
-  // eslint-disable-next-line no-console
-  console.warn('AUTH_TOKEN_SECRET is not set in production. Using ephemeral secret for this process.');
-}
 
 const toBase64Url = (input) => {
   return Buffer.from(input)

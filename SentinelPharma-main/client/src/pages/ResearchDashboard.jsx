@@ -47,6 +47,7 @@ import CitationPanel from '../components/dashboard/CitationPanel';
 import ReportGenerator from '../components/dashboard/ReportGenerator';
 import WatchAlertModule from '../components/dashboard/WatchAlertModule';
 import RepurposingDiscoveryPanel from '../components/dashboard/RepurposingDiscoveryPanel';
+import ExperimentalRepurposingExplorer from '../components/dashboard/ExperimentalRepurposingExplorer';
 import KnowledgeGraphEnhanced from '../components/graph/KnowledgeGraphEnhanced';
 import StrategySelector from '../components/StrategySelector';
 
@@ -68,6 +69,8 @@ const ResearchDashboard = () => {
   const [discoveryLoading, setDiscoveryLoading] = useState(false);
   const [discoveryError, setDiscoveryError] = useState(null);
   const [discoveryResults, setDiscoveryResults] = useState(null);
+  const [candidateEvidence, setCandidateEvidence] = useState({});
+  const [candidateEvidenceLoading, setCandidateEvidenceLoading] = useState({});
 
   // 7 Mandatory Agents + 3 Strategic Agents (EY Focus)
   const [agentStatuses, setAgentStatuses] = useState([
@@ -185,11 +188,25 @@ const ResearchDashboard = () => {
     try {
       const response = await researchService.discoverRepurposing(diseaseQuery.trim(), 5);
       setDiscoveryResults(response.data);
+      setCandidateEvidence({});
     } catch (err) {
       console.error('Repurposing discovery failed:', err);
       setDiscoveryError(err.response?.data?.error || 'Failed to discover repurposing candidates');
     } finally {
       setDiscoveryLoading(false);
+    }
+  };
+
+  const handleLoadCandidateEvidence = async (candidate) => {
+    const key = candidate.drug;
+    setCandidateEvidenceLoading((previous) => ({ ...previous, [key]: true }));
+    try {
+      const response = await researchService.getCandidateEvidence(key, discoveryResults.disease, candidate.score, 10);
+      setCandidateEvidence((previous) => ({ ...previous, [key]: response.data }));
+    } catch (err) {
+      setCandidateEvidence((previous) => ({ ...previous, [key]: { error: err.response?.data?.error?.message || 'Evidence is unavailable.' } }));
+    } finally {
+      setCandidateEvidenceLoading((previous) => ({ ...previous, [key]: false }));
     }
   };
 
@@ -281,7 +298,12 @@ const ResearchDashboard = () => {
         loading={discoveryLoading}
         error={discoveryError}
         data={discoveryResults}
+        candidateEvidence={candidateEvidence}
+        candidateEvidenceLoading={candidateEvidenceLoading}
+        onLoadCandidateEvidence={handleLoadCandidateEvidence}
       />
+
+      <ExperimentalRepurposingExplorer service={researchService} />
 
       {/* Search Form */}
       <div className="dash-surface rounded-3xl p-5 md:p-6 border border-gray-100 dark:border-slate-700 animate-rise">

@@ -76,6 +76,8 @@ const requireRoles = (...roles) => (req, res, next) => {
   return next();
 };
 
+const requireRole = (...roles) => requireRoles(...roles);
+
 const revokeToken = async (token) => {
   if (token) {
     // Store in Redis with 24 hour TTL (same as token expiration)
@@ -88,6 +90,7 @@ const revokeToken = async (token) => {
 module.exports = {
   attachAuthUser,
   requireAuth,
+  requireRole,
   requireRoles,
   revokeToken,
   getTokenFromRequest

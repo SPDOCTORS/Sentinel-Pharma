@@ -74,8 +74,7 @@ router.post('/request-otp', async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   const mobile = normalizeMobile(req.body?.mobile);
   const name = String(req.body?.name || '').trim();
-  const requestedRole = String(req.body?.role || DEFAULT_ROLE).trim() || DEFAULT_ROLE;
-  const role = ALLOWED_ROLES.has(requestedRole) ? requestedRole : DEFAULT_ROLE;
+  const role = DEFAULT_ROLE;
   const organization = String(req.body?.organization || '').trim();
 
   if (!['email', 'sms'].includes(channel)) {
@@ -115,8 +114,7 @@ router.post('/request-otp', async (req, res) => {
   }
 
   const maskedDestination = channel === 'email' ? maskEmail(destination) : maskMobile(destination);
-  // eslint-disable-next-line no-console
-  console.log(`[OTP:${channel.toUpperCase()}] ${maskedDestination} -> ${otp}`);
+  console.log(`[OTP:${channel.toUpperCase()}] challenge created for ${maskedDestination}`);
 
   return res.status(200).json({
     success: true,
@@ -127,7 +125,9 @@ router.post('/request-otp', async (req, res) => {
       expiresIn: OTP_TTL_SECONDS,
       storage: 'redis-ttl'
     },
-    otpPreview: process.env.NODE_ENV === 'production' ? undefined : otp
+    otpPreview: process.env.NODE_ENV === 'development' && process.env.AUTH_EXPOSE_OTP_PREVIEW === 'true'
+      ? otp
+      : undefined
   });
 });
 
@@ -138,8 +138,7 @@ router.post('/verify-otp', async (req, res) => {
   const mobile = normalizeMobile(req.body?.mobile);
   const otp = String(req.body?.otp || '').trim();
   const name = String(req.body?.name || '').trim();
-  const requestedRole = String(req.body?.role || DEFAULT_ROLE).trim() || DEFAULT_ROLE;
-  const role = ALLOWED_ROLES.has(requestedRole) ? requestedRole : DEFAULT_ROLE;
+  const role = DEFAULT_ROLE;
   const organization = String(req.body?.organization || '').trim();
 
   if (!['email', 'sms'].includes(channel)) {
@@ -219,8 +218,7 @@ router.post('/verify-otp', async (req, res) => {
 
 router.post('/google', async (req, res) => {
   const credential = String(req.body?.credential || '').trim();
-  const requestedRole = String(req.body?.role || DEFAULT_ROLE).trim() || DEFAULT_ROLE;
-  const role = ALLOWED_ROLES.has(requestedRole) ? requestedRole : DEFAULT_ROLE;
+  const role = DEFAULT_ROLE;
 
   if (!credential) {
     return res.status(400).json({ success: false, error: 'Google credential is required' });
