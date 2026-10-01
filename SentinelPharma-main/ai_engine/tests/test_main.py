@@ -2,9 +2,11 @@
 Tests for SentinelPharma AI Engine main application
 """
 import pytest
+from pydantic import ValidationError
 from fastapi.testclient import TestClient
 from app.main import app
 from app.core.config import settings
+from app.core.evidence import EvidenceItem
 
 
 @pytest.fixture
@@ -44,6 +46,17 @@ def test_sensitive_endpoint_requires_internal_service_token(client, monkeypatch)
     assert client.get("/api/gnn/status", headers={"X-Internal-Service-Token": "test-internal-token"}).status_code == 200
 
 
+def test_sensitive_endpoint_fails_closed_when_internal_service_token_is_unconfigured(client, monkeypatch):
+    monkeypatch.setattr(settings, "INTERNAL_SERVICE_TOKEN", None)
+
+    response = client.get("/api/gnn/status", headers={"X-Internal-Service-Token": "any-value"})
+
+    assert response.status_code == 401
+    assert response.json()["dataMode"] == "UNAVAILABLE"
+    assert response.json()["verificationStatus"] == "NOT_AVAILABLE"
+    assert response.json()["error"]["code"] == "INTERNAL_AUTH_REQUIRED"
+
+
 def test_synthetic_research_is_unavailable_outside_demo_mode(client, monkeypatch):
     monkeypatch.setattr(settings, "INTERNAL_SERVICE_TOKEN", "test-internal-token")
     monkeypatch.setattr(settings, "DEMO_MODE", False)
@@ -51,12 +64,15 @@ def test_synthetic_research_is_unavailable_outside_demo_mode(client, monkeypatch
     response = client.post(
         "/api/analyze",
         headers={"X-Internal-Service-Token": "test-internal-token"},
-        json={"molecule": "Aspirin", "mode": "secure", "request_id": "test-request"},
+        json={"molecule": "Aspirin", "mode": "secure", "request_id": "test-request", "research_mode": "demo"},
     )
 
     assert response.status_code == 503
     assert response.json()["dataMode"] == "UNAVAILABLE"
-    assert response.json()["error"]["code"] == "SOURCE_NOT_CONFIGURED"
+    assert response.json()["evidenceContractVersion"] == "1.0"
+    assert response.json()["verificationStatus"] == "NOT_AVAILABLE"
+    assert response.json()["unavailableReason"]["code"] == "DEMO_DISABLED"
+    assert response.json()["error"]["code"] == "DEMO_DISABLED"
 
 
 def test_gnn_prediction_is_labelled_as_model_prediction(client, monkeypatch):
@@ -74,6 +90,8 @@ def test_gnn_prediction_is_labelled_as_model_prediction(client, monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["dataMode"] == "MODEL_PREDICTION"
+    assert response.json()["verificationStatus"] == "MODEL_INFERENCE"
+    assert response.json()["evidenceContractVersion"] == "1.0"
     assert response.json()["metadata"]["modelVersion"] == "test-gnn-v1"
 
 
@@ -86,6 +104,7 @@ def test_demo_agent_response_has_explicit_demo_provenance(client, monkeypatch):
     assert response.status_code == 200
     assert response.json()["dataMode"] == "DEMO_SYNTHETIC"
     assert response.json()["verificationStatus"] == "DEMO_ONLY"
+    assert response.json()["evidenceContractVersion"] == "1.0"
 
 
 def test_pubmed_endpoint_requires_internal_auth_and_returns_source_backed_data(client, monkeypatch):
@@ -106,6 +125,8 @@ def test_pubmed_endpoint_requires_internal_auth_and_returns_source_backed_data(c
     )
     assert response.status_code == 200
     assert response.json()["dataMode"] == "SOURCE_BACKED"
+    assert response.json()["verificationStatus"] == "VERIFIED_SOURCE"
+    assert response.json()["evidenceContractVersion"] == "1.0"
     assert response.json()["evidence"][0]["sourceId"] == "12345678"
 
 
@@ -121,3 +142,21 @@ def test_clinical_trials_endpoint_requires_internal_auth(client, monkeypatch):
     response = client.post("/api/evidence/clinical-trials/search", headers={"X-Internal-Service-Token": "test-internal-token"}, json={"drug": "metformin"})
     assert response.status_code == 200
     assert response.json()["dataMode"] == "SOURCE_BACKED"
+
+
+def test_source_backed_evidence_requires_identity_and_retrieval_time():
+    with pytest.raises(ValidationError):
+        EvidenceItem(
+            claim="Untraceable claim",
+            dataMode="SOURCE_BACKED",
+            verificationStatus="VERIFIED_SOURCE",
+        )
+
+
+def test_evidence_modes_reject_incompatible_verification_status():
+    with pytest.raises(ValidationError):
+        EvidenceItem(
+            claim="A model output",
+            dataMode="MODEL_PREDICTION",
+            verificationStatus="VERIFIED_SOURCE",
+        )

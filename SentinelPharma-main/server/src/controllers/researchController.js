@@ -18,7 +18,13 @@ const path = require('path');
 const { logger, auditLog } = require('../utils/logger');
 const aiEngineService = require('../services/aiEngineService');
 const { ResearchReport } = require('../models');
-const { filterEvidenceForProductionReport, summarizeDataModes } = require('../utils/evidencePolicy');
+const {
+  EVIDENCE_CONTRACT_VERSION,
+  filterTraceableCitations,
+  normalizeProvenanceEnvelope,
+  summarizeDataModes,
+  unavailablePayload
+} = require('../utils/evidencePolicy');
 const { buildCandidateEvidenceSummary } = require('../utils/candidateEvidence');
 
 // Lightweight in-memory request store for live status/report preview lookup.
@@ -125,7 +131,7 @@ const buildValidationLayer = (analysisResults = {}, molecule) => {
   };
 };
 
-const buildCitations = (analysisResults = {}) => filterEvidenceForProductionReport(analysisResults.citations);
+const buildCitations = (analysisResults = {}) => filterTraceableCitations(analysisResults.citations);
 
 const buildRecommendationDossier = (molecule, analysisResults = {}, validation = {}, citations = []) => {
   const pathways = analysisResults?.knowledge_graph?.key_pathways || ['PI3K/AKT', 'MAPK/ERK', 'JAK/STAT'];
@@ -141,6 +147,9 @@ const buildRecommendationDossier = (molecule, analysisResults = {}, validation =
   return [
     {
       id: 'rec-1',
+      evidenceContractVersion: EVIDENCE_CONTRACT_VERSION,
+      dataMode: 'DEMO_SYNTHETIC',
+      verificationStatus: 'DEMO_ONLY',
       title: `Advance ${molecule} to indication-specific retrospective validation`,
       validationLabel: 'Partially validated',
       outputType: 'Validated core recommendation',
@@ -153,6 +162,9 @@ const buildRecommendationDossier = (molecule, analysisResults = {}, validation =
     },
     {
       id: 'rec-2',
+      evidenceContractVersion: EVIDENCE_CONTRACT_VERSION,
+      dataMode: 'DEMO_SYNTHETIC',
+      verificationStatus: 'DEMO_ONLY',
       title: `Investigate biomarker-enriched cohorts linked to ${secondaryPathway}`,
       validationLabel: 'Evidence-backed simulation',
       outputType: 'Simulated expansion hypothesis',
@@ -165,6 +177,9 @@ const buildRecommendationDossier = (molecule, analysisResults = {}, validation =
     },
     {
       id: 'rec-3',
+      evidenceContractVersion: EVIDENCE_CONTRACT_VERSION,
+      dataMode: 'DEMO_SYNTHETIC',
+      verificationStatus: 'DEMO_ONLY',
       title: `Pair ${molecule} with regulatory and HEOR evidence generation before portfolio escalation`,
       validationLabel: 'Operational recommendation',
       outputType: 'Validated workflow guidance',
@@ -396,7 +411,7 @@ const processResearch = async (req, res) => {
   const startTime = Date.now();
 
   try {
-    const { molecule, mode = 'cloud', provider = null } = req.body;
+    const { molecule, disease = null, researchMode = 'live', mode = 'cloud', provider = null } = req.body;
 
     // Validate required fields
     if (!molecule || typeof molecule !== 'string') {
@@ -417,6 +432,13 @@ const processResearch = async (req, res) => {
         error: `Invalid mode. Must be one of: ${validModes.join(', ')}`,
         requestId
       });
+    }
+    if (researchMode === 'live' && mode === 'secure') {
+      return res.status(422).json(unavailablePayload(
+        'LIVE_RETRIEVAL_REQUIRES_CLOUD_MODE',
+        'Live PubMed and ClinicalTrials.gov retrieval requires cloud mode.',
+        { requestId }
+      ));
     }
 
     // Log research initiation
@@ -441,27 +463,33 @@ const processResearch = async (req, res) => {
     // Execute multi-agent analysis
     const analysisResults = await aiEngineService.analyzeCompound({
       molecule,
+      disease,
+      researchMode,
       mode,
       requestId,
-      agents: ['clinical', 'patent', 'iqvia', 'vision', 'exim', 'web_intelligence', 'internal_knowledge', 'regulatory', 'patient_sentiment', 'esg'],
+      agents: researchMode === 'demo'
+        ? ['clinical', 'patent', 'iqvia', 'vision', 'exim', 'web_intelligence', 'internal_knowledge', 'regulatory', 'patient_sentiment', 'esg']
+        : undefined,
       provider
     });
 
     const citations = buildCitations(analysisResults);
-    const validation = analysisResults?.validation || buildValidationLayer(analysisResults, molecule);
-    const recommendationDossier = buildRecommendationDossier(molecule, analysisResults, validation, citations);
-    const benchmarking = buildBenchmarking(molecule, analysisResults, validation);
-    const retrospectiveCaseStudies = buildRetrospectiveCaseStudies(molecule);
-    const simulationDisclosure = buildSimulationDisclosure(validation);
-    const enrichedResults = {
+    const enrichedResults = researchMode === 'demo' ? (() => {
+      const validation = analysisResults?.validation || buildValidationLayer(analysisResults, molecule);
+      return {
+        ...analysisResults,
+        validation,
+        citations,
+        dataModes: summarizeDataModes(citations),
+        recommendation_dossier: buildRecommendationDossier(molecule, analysisResults, validation, citations),
+        benchmarking: buildBenchmarking(molecule, analysisResults, validation),
+        retrospective_case_studies: buildRetrospectiveCaseStudies(molecule),
+        simulation_disclosure: buildSimulationDisclosure(validation)
+      };
+    })() : {
       ...analysisResults,
-      validation,
       citations,
-      dataModes: summarizeDataModes(citations),
-      recommendation_dossier: recommendationDossier,
-      benchmarking,
-      retrospective_case_studies: retrospectiveCaseStudies,
-      simulation_disclosure: simulationDisclosure
+      dataModes: summarizeDataModes(citations)
     };
 
     // Calculate request duration
@@ -470,15 +498,20 @@ const processResearch = async (req, res) => {
     // Log successful response
     auditLog.apiResponse(requestId, 200, duration);
 
-    const quality = computeQualityScore(enrichedResults, 10, duration);
+    const quality = researchMode === 'demo' ? computeQualityScore(enrichedResults, 10, duration) : undefined;
 
-    const responsePayload = {
+    const responsePayload = normalizeProvenanceEnvelope({
       success: true,
-      dataMode: analysisResults.dataMode || 'MODEL_PREDICTION',
+      dataMode: analysisResults.dataMode,
+      verificationStatus: analysisResults.verificationStatus,
+      generatedAt: analysisResults.generatedAt || new Date().toISOString(),
       requestId,
       molecule,
+      disease,
+      researchMode,
+      degraded: Boolean(analysisResults.degraded),
       processingMode: mode,
-      modelUsed: config.model,
+      modelUsed: analysisResults.model_used,
       status: 'completed',
       results: {
         ...enrichedResults,
@@ -487,12 +520,13 @@ const processResearch = async (req, res) => {
       metadata: {
         timestamp: new Date().toISOString(),
         version: '1.0.0',
-        complianceMode: mode === 'secure' ? 'HIPAA_COMPLIANT' : 'STANDARD',
-        quality
+        evidenceContractVersion: EVIDENCE_CONTRACT_VERSION,
+        quality,
+        ...(researchMode === 'demo' ? { complianceMode: mode === 'secure' ? 'LOCAL_DEMO' : 'CLOUD_DEMO' } : {})
       }
-    };
+    });
 
-    // Persist report for history/export in a best-effort way.
+    // A live result is complete only when the report can be read back from storage.
     try {
       const summary = normalizeSummaryForArchive(enrichedResults?.summary || {}, molecule);
       const agentsExecuted = normalizeAgentsForArchive(enrichedResults?.agents_executed || []);
@@ -506,7 +540,7 @@ const processResearch = async (req, res) => {
           molecule,
           query: req.body?.query || `Analysis request for ${molecule}`,
           processingMode: mode,
-          modelUsed: config.model,
+          modelUsed: analysisResults.model_used,
           results: enrichedResults,
           summary,
           knowledgeGraph: enrichedResults?.knowledge_graph || enrichedResults?.knowledgeGraph || {},
@@ -526,9 +560,16 @@ const processResearch = async (req, res) => {
         requestId,
         error: archiveError.message
       });
+      if (researchMode === 'live') {
+        return res.status(503).json(unavailablePayload(
+          'REPORT_PERSISTENCE_UNAVAILABLE',
+          'Evidence was retrieved but the report could not be saved.',
+          { requestId }
+        ));
+      }
     }
 
-    requestStore.set(requestId, responsePayload);
+    requestStore.set(requestId, { ownerId: String(req.user?.id || ''), payload: responsePayload });
 
     // Return aggregated results
     return res.status(200).json(responsePayload);
@@ -546,14 +587,15 @@ const processResearch = async (req, res) => {
 
     auditLog.apiResponse(requestId, 500, duration);
 
-    return res.status(503).json({
-      success: false,
-      dataMode: 'UNAVAILABLE',
-      errorCode: 'RESEARCH_ENGINE_UNAVAILABLE',
-      error: 'Research processing failed',
-      message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
-      requestId
-    });
+    return res.status(503).json(unavailablePayload(
+      'RESEARCH_ENGINE_UNAVAILABLE',
+      'Research processing failed; no research result is available.',
+      {
+        errorCode: 'RESEARCH_ENGINE_UNAVAILABLE',
+        message: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+        requestId
+      }
+    ));
   }
 };
 
@@ -796,7 +838,9 @@ const discoverRepurposingCandidates = async (req, res) => {
 
       return res.status(200).json({
         success: true,
+        evidenceContractVersion: EVIDENCE_CONTRACT_VERSION,
         dataMode: 'MODEL_PREDICTION',
+        verificationStatus: 'MODEL_INFERENCE',
         requestId,
         disease: gnnResponse.disease || disease,
         model: gnnResponse.model,
@@ -815,14 +859,11 @@ const discoverRepurposingCandidates = async (req, res) => {
         code: fallbackReason.code,
         error: fallbackReason.engineDetail
       });
-      return res.status(503).json({
-        success: false,
-        dataMode: 'UNAVAILABLE',
-        errorCode: fallbackReason.code || 'GNN_UNAVAILABLE',
-        requestId,
-        disease,
-        error: 'GNN candidate discovery is unavailable; no substitute candidates were returned.'
-      });
+      return res.status(503).json(unavailablePayload(
+        fallbackReason.code || 'GNN_UNAVAILABLE',
+        'GNN candidate discovery is unavailable; no substitute candidates were returned.',
+        { errorCode: fallbackReason.code || 'GNN_UNAVAILABLE', requestId, disease }
+      ));
     }
   } catch (error) {
     logger.error('Disease-first repurposing discovery failed', {
@@ -831,11 +872,11 @@ const discoverRepurposingCandidates = async (req, res) => {
       stack: error.stack
     });
 
-    return res.status(500).json({
-      success: false,
-      requestId,
-      error: 'Failed to discover repurposing candidates'
-    });
+    return res.status(500).json(unavailablePayload(
+      'GNN_REQUEST_FAILED',
+      'Failed to discover repurposing candidates; no substitute candidates were returned.',
+      { requestId }
+    ));
   }
 };
 
@@ -846,29 +887,26 @@ const searchPubMedEvidence = async (req, res) => {
       query: req.body.query,
       limit: req.body.limit || 10
     });
-    return res.status(200).json(result);
+    return res.status(200).json(normalizeProvenanceEnvelope(result, 'SOURCE_BACKED'));
   } catch (error) {
     logger.warn('PubMed evidence retrieval unavailable', { error: error.message });
-    return res.status(503).json({
-      success: false,
-      dataMode: 'UNAVAILABLE',
-      error: {
-        code: 'PUBMED_UNAVAILABLE',
-        message: 'PubMed evidence retrieval is currently unavailable.'
-      }
-    });
+    return res.status(503).json(unavailablePayload(
+      'PUBMED_UNAVAILABLE',
+      'PubMed evidence retrieval is currently unavailable.'
+    ));
   }
 };
 
 const searchClinicalTrialsEvidence = async (req, res) => {
   try {
     const result = await aiEngineService.searchClinicalTrialsEvidence(req.body);
-    return res.status(200).json(result);
+    return res.status(200).json(normalizeProvenanceEnvelope(result, 'SOURCE_BACKED'));
   } catch (error) {
     logger.warn('ClinicalTrials.gov evidence retrieval unavailable', { error: error.message });
-    return res.status(503).json({ success: false, dataMode: 'UNAVAILABLE', error: {
-      code: 'CLINICAL_TRIALS_UNAVAILABLE', message: 'ClinicalTrials.gov evidence retrieval is currently unavailable.'
-    }});
+    return res.status(503).json(unavailablePayload(
+      'CLINICAL_TRIALS_UNAVAILABLE',
+      'ClinicalTrials.gov evidence retrieval is currently unavailable.'
+    ));
   }
 };
 
@@ -879,14 +917,21 @@ const getCandidateEvidence = async (req, res) => {
       aiEngineService.searchPubMedEvidence({ query: `${candidate} ${disease}`, limit }),
       aiEngineService.searchClinicalTrialsEvidence({ drug: candidate, condition: disease, limit })
     ]);
-    return res.json({ success: true, candidateEvidence: buildCandidateEvidenceSummary(
+    return res.json(normalizeProvenanceEnvelope({
+      success: true,
+      dataMode: 'MODEL_PREDICTION',
+      verificationStatus: 'MODEL_INFERENCE',
+      generatedAt: new Date().toISOString(),
+      candidateEvidence: buildCandidateEvidenceSummary(
       candidate, { score }, pubmed.evidence || [], clinicalTrials.evidence || [], disease),
-      literatureEvidence: pubmed.evidence || [], clinicalTrialEvidence: clinicalTrials.evidence || [] });
+      literatureEvidence: pubmed.evidence || [], clinicalTrialEvidence: clinicalTrials.evidence || []
+    }, 'MODEL_PREDICTION'));
   } catch (error) {
     logger.warn('Candidate evidence retrieval unavailable', { error: error.message });
-    return res.status(503).json({ success: false, dataMode: 'UNAVAILABLE', error: {
-      code: 'CANDIDATE_EVIDENCE_UNAVAILABLE', message: 'Candidate evidence retrieval is currently unavailable.'
-    }});
+    return res.status(503).json(unavailablePayload(
+      'CANDIDATE_EVIDENCE_UNAVAILABLE',
+      'Candidate evidence retrieval is currently unavailable.'
+    ));
   }
 };
 
@@ -894,30 +939,37 @@ const experimentalFailure = (res, error) => {
   const status = error.response?.status || 503;
   const message = status === 404 ? 'The requested experimental record was not found.' : 'Experimental repurposing is currently unavailable.';
   logger.warn('Experimental repurposing proxy unavailable', { status, error: error.message });
-  return res.status(status).json({ success: false, dataMode: 'UNAVAILABLE', error: message });
+  return res.status(status).json(unavailablePayload(
+    status === 404 ? 'EXPERIMENTAL_RECORD_NOT_FOUND' : 'EXPERIMENTAL_REPURPOSING_UNAVAILABLE',
+    message
+  ));
 };
 
 const getExperimentalCandidates = async (req, res) => {
   try {
-    return res.json(await aiEngineService.experimentalCandidates({ drugId: req.params.drugId, topK: req.query.top_k || 10 }));
+    const result = await aiEngineService.experimentalCandidates({ drugId: req.params.drugId, topK: req.query.top_k || 10 });
+    return res.json(normalizeProvenanceEnvelope(result, 'MODEL_PREDICTION'));
   } catch (error) { return experimentalFailure(res, error); }
 };
 
 const getExperimentalCandidateDetail = async (req, res) => {
   try {
-    return res.json(await aiEngineService.experimentalCandidateDetail({ drugId: req.params.drugId, diseaseId: req.params.diseaseId }));
+    const result = await aiEngineService.experimentalCandidateDetail({ drugId: req.params.drugId, diseaseId: req.params.diseaseId });
+    return res.json(normalizeProvenanceEnvelope(result, 'MODEL_PREDICTION'));
   } catch (error) { return experimentalFailure(res, error); }
 };
 
 const getExperimentalKnownIndications = async (req, res) => {
   try {
-    return res.json(await aiEngineService.experimentalKnownIndications({ drugId: req.params.drugId }));
+    const result = await aiEngineService.experimentalKnownIndications({ drugId: req.params.drugId });
+    return res.json(normalizeProvenanceEnvelope(result, 'SOURCE_BACKED'));
   } catch (error) { return experimentalFailure(res, error); }
 };
 
 const getExperimentalEvidence = async (req, res) => {
   try {
-    return res.json(await aiEngineService.experimentalEvidence({ drugId: req.body.drug_id, diseaseId: req.body.disease_id }));
+    const result = await aiEngineService.experimentalEvidence({ drugId: req.body.drug_id, diseaseId: req.body.disease_id });
+    return res.json(normalizeProvenanceEnvelope(result, 'MODEL_PREDICTION'));
   } catch (error) { return experimentalFailure(res, error); }
 };
 
@@ -1045,11 +1097,11 @@ const getResearchStatus = async (req, res) => {
     logger.info('Status check requested', { requestId });
 
     const stored = requestStore.get(requestId);
-    if (stored) {
-      return res.status(200).json(stored);
+    if (stored?.ownerId === String(req.user?.id || '')) {
+      return res.status(200).json(stored.payload);
     }
 
-    const archived = await ResearchReport.findOne({ requestId }).lean();
+    const archived = await ResearchReport.findOne({ requestId, userId: req.user?.id }).lean();
     if (archived) {
       const quality = computeQualityScore(
         archived.results || {},
@@ -1057,10 +1109,16 @@ const getResearchStatus = async (req, res) => {
         archived.totalProcessingTimeMs || 0
       );
 
-      return res.status(200).json({
+      return res.status(200).json(normalizeProvenanceEnvelope({
         success: true,
+        dataMode: archived.results?.dataMode,
+        verificationStatus: archived.results?.verificationStatus,
+        generatedAt: archived.results?.generatedAt,
         requestId: archived.requestId,
         molecule: archived.molecule,
+        disease: archived.results?.disease || null,
+        researchMode: archived.results?.researchMode || 'legacy',
+        degraded: Boolean(archived.results?.degraded),
         processingMode: archived.processingMode,
         modelUsed: archived.modelUsed,
         status: archived.status || 'completed',
@@ -1069,9 +1127,9 @@ const getResearchStatus = async (req, res) => {
           timestamp: archived.createdAt,
           version: '1.0.0',
           source: 'archive-db',
-          quality
+          ...(archived.results?.researchMode === 'demo' ? { quality } : {})
         }
-      });
+      }));
     }
 
     return res.status(404).json({

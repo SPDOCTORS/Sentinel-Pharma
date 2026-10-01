@@ -14,6 +14,7 @@ import {
   Target,
   TrendingUp
 } from 'lucide-react';
+import EvidenceModeBadge from '../ui/EvidenceModeBadge';
 
 const toneClass = {
   validated: 'border-emerald-200 bg-emerald-50 text-emerald-800',
@@ -144,6 +145,7 @@ const BenchmarkProductPanel = ({ agentResults, molecule }) => {
     addLine('Recommendation Dossier', { size: 14, weight: 'bold', color: [3, 105, 161] });
     recommendations.forEach((item, index) => {
       addLine(`${index + 1}. ${item.title}`, { weight: 'bold' });
+      addLine(`Provenance: ${item.dataMode || 'UNAVAILABLE'} / ${item.verificationStatus || 'NOT_AVAILABLE'}`);
       addLine(`Validation: ${item.validationLabel} | Confidence: ${formatMetric(item.confidence)}%`);
       addLine(`Evidence path: ${(item.evidencePath || []).join(' -> ')}`);
       addLine(`Uncertainty: ${item.uncertainty}`);
@@ -358,8 +360,11 @@ const BenchmarkProductPanel = ({ agentResults, molecule }) => {
               <div key={item.id} className="rounded-xl border border-slate-200 dark:border-slate-600 p-4 bg-slate-50 dark:bg-slate-900/40">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="font-semibold text-slate-900 dark:text-white">{item.title}</div>
-                  <div className={`px-2.5 py-1 rounded-full border text-xs font-semibold ${toneClass[tone]}`}>
-                    {item.validationLabel}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <EvidenceModeBadge dataMode={item.dataMode} verificationStatus={item.verificationStatus} />
+                    <div className={`px-2.5 py-1 rounded-full border text-xs font-semibold ${toneClass[tone]}`}>
+                      {item.validationLabel}
+                    </div>
                   </div>
                 </div>
                 <div className="mt-3 grid md:grid-cols-3 gap-3 text-sm">

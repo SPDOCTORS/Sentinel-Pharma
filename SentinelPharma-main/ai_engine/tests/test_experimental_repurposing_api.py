@@ -102,6 +102,9 @@ def test_ranking_contract_default_and_custom_top_k(client, monkeypatch):
     assert body["candidateCount"] == 10
     assert body["candidates"][0]["candidate"]["candidateStatus"] == "UNOBSERVED_CANDIDATE"
     assert body["candidates"][0]["candidate"]["provenance"] == "MODEL_PREDICTION"
+    assert body["dataMode"] == "MODEL_PREDICTION"
+    assert body["verificationStatus"] == "MODEL_INFERENCE"
+    assert body["evidenceContractVersion"] == "1.0"
     assert body["candidates"][0]["model"]["graphDatasetVersion"] == "biomedical_graph_v4"
     assert body["structuralGraph"]["graphDatasetVersion"] == "biomedical_graph_v5"
     assert body["candidates"][0]["structuralEvidence"]["lookupStatus"] == "AVAILABLE"

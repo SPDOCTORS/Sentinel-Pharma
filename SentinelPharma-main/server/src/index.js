@@ -218,7 +218,9 @@ app.get('/ready', async (req, res) => {
     details.aiEngine = { status: 'unhealthy', message: `AI Engine unreachable: ${error.message}` };
   }
 
-  const allHealthy = checks.server && checks.mongodb && checks.aiEngine;
+  // Redis is a required production dependency: OTP, token revocation and cache
+  // semantics must not be advertised as ready while it is unavailable.
+  const allHealthy = checks.server && checks.mongodb && checks.aiEngine && checks.redis;
   const status = allHealthy ? 'ready' : 'not-ready';
 
   res.status(allHealthy ? 200 : 503).json({

@@ -116,11 +116,13 @@ export const researchService = {
   * @param {string} provider - AI model provider ('ollama', 'gemini')
    * @returns {Promise} API response with analysis results
    */
-  analyze: async (molecule, mode = 'cloud', provider = null) => {
+  analyze: async (molecule, mode = 'cloud', provider = null, disease = null, researchMode = 'live') => {
     return apiClient.post('/api/research', {
       molecule,
       mode,
-      provider
+      provider,
+      disease,
+      researchMode
     });
   },
 

@@ -72,12 +72,11 @@ class LLMService:
         """Initialize Google Gemini client"""
         if not self.gemini_client:
             try:
-                import google.generativeai as genai
-                genai.configure(api_key=api_key)
-                self.gemini_client = genai
+                from google import genai
+                self.gemini_client = genai.Client(api_key=api_key)
                 logger.info("Google Gemini client initialized")
             except ImportError:
-                logger.error("google-generativeai package not installed. Run: pip install google-generativeai")
+                logger.error("google-genai package not installed. Run: pip install google-genai")
                 raise
             except Exception as e:
                 logger.error(f"Failed to initialize Gemini client: {e}")
@@ -114,13 +113,6 @@ class LLMService:
             except Exception as e:
                 logger.error(f"Failed to initialize Ollama client: {e}")
                 raise
-    
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((Exception,)),
-        reraise=True
-    )
     async def generate_completion(
         self,
         prompt: str,
@@ -220,23 +212,21 @@ class LLMService:
         
         # Call Gemini API using new SDK
         try:
-            model_name = llm_config.get("model", "gemini-2.0-flash-exp")
-            model = self.gemini_client.GenerativeModel(model_name)
-            
-            # Run in thread pool since SDK operations are synchronous
+            model_name = llm_config.get("model", "gemini-3.8-flash")
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
                 None,
-                lambda: model.generate_content(
-                    full_prompt,
-                    generation_config={
-                        "temperature": temperature or llm_config.get("temperature", 0.7),
-                        "max_output_tokens": max_tokens or llm_config.get("max_tokens", 8192),
-                    }
-                )
-            )
-            
-            result = response.text if getattr(response, "text", None) else ""
+                lambda: self.gemini_client.models.generate_content(
+                   model=model_name,
+                   contents=full_prompt,
+                   config={
+                       "temperature": temperature or llm_config.get("temperature", 0.7),
+                       "max_output_tokens": max_tokens or llm_config.get("max_tokens", 8192),
+        }
+    )
+)
+
+            result = response.text if getattr(response, "text", None) else ""            
             logger.info(
                 "Gemini completion generated",
                 model=model_name,

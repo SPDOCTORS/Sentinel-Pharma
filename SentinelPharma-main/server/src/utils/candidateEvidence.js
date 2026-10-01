@@ -35,7 +35,12 @@ const pubmedLink = (candidate, disease, evidence) => {
 
 const buildCandidateEvidenceSummary = (candidate, prediction, pubmedEvidence = [], trialEvidence = [], disease) => ({
   candidate,
-  prediction: { dataMode: 'MODEL_PREDICTION', rankingScore: prediction?.score ?? null },
+  prediction: {
+    evidenceContractVersion: '1.0',
+    dataMode: 'MODEL_PREDICTION',
+    verificationStatus: 'MODEL_INFERENCE',
+    rankingScore: prediction?.score ?? null
+  },
   evidenceSummary: { pubmedCount: pubmedEvidence.length, clinicalTrialCount: trialEvidence.length },
   evidenceLinks: [
     ...pubmedEvidence.map((item) => pubmedLink(candidate, disease, item)),

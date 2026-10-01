@@ -122,47 +122,9 @@ const ResearchReportSchema = new mongoose.Schema({
   modelUsed: String,
   
   // Agent Results
-  results: {
-    clinical: {
-      type: mongoose.Schema.Types.Mixed
-    },
-    patent: {
-      type: mongoose.Schema.Types.Mixed
-    },
-    market: {
-      type: mongoose.Schema.Types.Mixed
-    },
-    iqvia: {
-      type: mongoose.Schema.Types.Mixed
-    },
-    exim: {
-      type: mongoose.Schema.Types.Mixed
-    },
-    web_intelligence: {
-      type: mongoose.Schema.Types.Mixed
-    },
-    internal_knowledge: {
-      type: mongoose.Schema.Types.Mixed
-    },
-    regulatory: {
-      type: mongoose.Schema.Types.Mixed
-    },
-    patient_sentiment: {
-      type: mongoose.Schema.Types.Mixed
-    },
-    vision: {
-      type: mongoose.Schema.Types.Mixed
-    },
-    validation: {
-      type: mongoose.Schema.Types.Mixed
-    },
-    kol: {
-      type: mongoose.Schema.Types.Mixed
-    },
-    pathfinder: {
-      type: mongoose.Schema.Types.Mixed
-    }
-  },
+  // Keep the versioned evidence envelope, citations, source state, and model
+  // lineage intact when a report is saved and read back.
+  results: { type: mongoose.Schema.Types.Mixed, default: {} },
   
   // Summary
   summary: {

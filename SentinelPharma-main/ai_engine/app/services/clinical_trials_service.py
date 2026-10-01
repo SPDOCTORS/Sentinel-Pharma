@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from app.core.config import settings
+from app.core.evidence import EVIDENCE_CONTRACT_VERSION, EvidenceItem
 
 
 class ClinicalTrialsUnavailable(Exception):
@@ -40,8 +41,12 @@ class ClinicalTrialsService:
             if not isinstance(studies, list):
                 raise ClinicalTrialsUnavailable("Malformed ClinicalTrials.gov response")
             retrieved_at = datetime.now(timezone.utc).isoformat()
+            evidence = [
+                EvidenceItem(**self._normalize(study, retrieved_at)).model_dump(mode="json", exclude_none=True)
+                for study in studies
+            ]
             return {"drug": drug, "condition": condition, "query": query, "retrievedAt": retrieved_at,
-                    "evidence": [self._normalize(study, retrieved_at) for study in studies]}
+                    "evidence": evidence}
         except (httpx.HTTPError, ValueError, ClinicalTrialsUnavailable) as exc:
             if isinstance(exc, ValueError) and str(exc) == "drug, condition, or query is required":
                 raise
@@ -83,6 +88,7 @@ class ClinicalTrialsService:
         conditions = self._get(protocol, "conditionsModule", "conditions")
         phases = design.get("phases") if isinstance(design.get("phases"), list) else None
         return {
+            "evidenceContractVersion": EVIDENCE_CONTRACT_VERSION,
             "id": f"NCT:{nct_id}", "claim": identification.get("briefTitle"),
             "sourceType": "CLINICALTRIALS_GOV", "sourceName": "ClinicalTrials.gov", "sourceId": nct_id,
             "sourceUrl": f"https://clinicaltrials.gov/study/{nct_id}", "retrievedAt": retrieved_at,

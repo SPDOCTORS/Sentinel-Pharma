@@ -50,6 +50,7 @@ coverage.xml
 
 # Testing
 .pytest_cache/
+.pytest_cache_local/
 .tox/
 
 # Build artifacts
@@ -62,6 +63,7 @@ ai_engine/artifacts/
 __pycache__/
 *.pyc
 .pytest_cache/
+.pytest_cache_local/
 
 # Test/build output
 *.out

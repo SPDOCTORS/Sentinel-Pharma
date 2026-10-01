@@ -5,13 +5,15 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in your production environment}
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?Set REDIS_PASSWORD in your production environment}"]
     volumes:
       - redis_data:/data
     networks:
       - sentinelpharma
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -30,7 +32,7 @@ services:
     networks:
       - sentinelpharma
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD-SHELL", "mongosh --quiet --username \"$$MONGO_INITDB_ROOT_USERNAME\" --password \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\" | grep -q 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -43,18 +45,27 @@ services:
     restart: unless-stopped
     environment:
       - PYTHONPATH=/app
-      - REDIS_URL=redis://redis:6379
-      - MONGODB_URL=mongodb://mongodb:27017/sentinelpharma
+      - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:?Set INTERNAL_SERVICE_TOKEN in your production environment}
+      - NCBI_TOOL_NAME=${NCBI_TOOL_NAME:-sentinelpharma}
+      - NCBI_EMAIL=${NCBI_EMAIL:-}
+      - NCBI_API_KEY=${NCBI_API_KEY:-}
+      - PUBMED_TIMEOUT_SECONDS=${PUBMED_TIMEOUT_SECONDS:-10}
+      - PUBMED_MAX_RESULTS=${PUBMED_MAX_RESULTS:-50}
+      - CLINICAL_TRIALS_TIMEOUT_SECONDS=${CLINICAL_TRIALS_TIMEOUT_SECONDS:-10}
+      - CLINICAL_TRIALS_MAX_RESULTS=${CLINICAL_TRIALS_MAX_RESULTS:-50}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash-exp}
+      - GEMINI_ENABLED=${GEMINI_ENABLED:-true}
+      - CLOUD_ENABLED=${CLOUD_ENABLED:-true}
+      - LOCAL_ENABLED=${LOCAL_ENABLED:-true}
+      - DEFAULT_LLM_PROVIDER=${DEFAULT_LLM_PROVIDER:-gemini}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3:8b}
     volumes:
       - ./ai_engine/artifacts:/app/artifacts
       - ./ai_engine/data:/app/data
     networks:
       - sentinelpharma
-    depends_on:
-      redis:
-        condition: service_healthy
-      mongodb:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -73,7 +84,9 @@ services:
       - MONGODB_URL=mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD}@mongodb:27017/sentinelpharma?authSource=admin
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD in your production environment}
       - AUTH_TOKEN_SECRET=${AUTH_TOKEN_SECRET:?Set AUTH_TOKEN_SECRET to a long random value}
+      - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:?Set INTERNAL_SERVICE_TOKEN in your production environment}
       - AI_ENGINE_URL=http://ai-engine:8000
     networks:
       - sentinelpharma
@@ -85,7 +98,7 @@ services:
       ai-engine:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3001/ready"]
       interval: 30s
       timeout: 10s
       retries: 3

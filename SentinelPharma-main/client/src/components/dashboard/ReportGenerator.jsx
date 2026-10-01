@@ -21,6 +21,10 @@ import {
   ChevronUp
 } from 'lucide-react';
 
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+}[character]));
+
 const ReportGenerator = ({ 
   results, 
   molecule,
@@ -68,6 +72,39 @@ const ReportGenerator = ({
       month: 'long',
       day: 'numeric'
     });
+    const dataMode = results?.dataMode || 'UNAVAILABLE';
+    const verificationStatus = results?.verificationStatus || 'NOT_AVAILABLE';
+    const provenanceDescriptions = {
+      SOURCE_BACKED: 'Source-backed records; source identity does not establish clinical validity.',
+      MODEL_PREDICTION: 'Model prediction; not verified biomedical evidence or a clinical-success probability.',
+      DEMO_SYNTHETIC: 'Synthetic demonstration; claims, scores and recommendations are simulated.',
+      UNAVAILABLE: 'Requested evidence is unavailable; no substitute evidence was generated.'
+    };
+
+    if (results?.researchMode === 'live') {
+      const sourceResults = results?.results?.sourceResults || {};
+      const citations = results?.citations || results?.results?.citations || [];
+      const prediction = results?.results?.modelPrediction || {};
+      const sourceRows = [['pubmed', 'PubMed'], ['clinicalTrials', 'ClinicalTrials.gov']].map(([key, name]) => {
+        const source = sourceResults[key] || {};
+        return `<li><strong>${name}:</strong> ${source.dataMode === 'SOURCE_BACKED' ? `${source.count ?? 0} source-backed records (retrieved ${escapeHtml(source.retrievedAt || 'unknown')})` : `Unavailable — ${escapeHtml(source.unavailableReason?.message || 'No source data available')}`}</li>`;
+      }).join('');
+      const citationRows = citations.map((citation) => {
+        const url = /^https:\/\//i.test(citation.sourceUrl || '') ? citation.sourceUrl : null;
+        const label = escapeHtml(citation.sourceName || citation.claim || citation.sourceId || 'Source record');
+        return `<li>${url ? `<a href="${escapeHtml(url)}">${label}</a>` : label} — ${escapeHtml(citation.sourceId || '')} (${escapeHtml(citation.retrievedAt || 'retrieval time unavailable')})</li>`;
+      }).join('');
+      const candidates = (prediction.candidates || []).map((candidate) => `<li>${escapeHtml(candidate.drugName || candidate.drug || candidate.name || 'Unknown candidate')} — model score ${escapeHtml(candidate.score ?? candidate.predictionScore ?? 'unavailable')}</li>`).join('');
+      return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Research Evidence Report — ${escapeHtml(molecule)}</title><style>body{font-family:Arial,sans-serif;max-width:850px;margin:40px auto;line-height:1.5;color:#182334}section{margin:26px 0}li{margin:8px 0}small{color:#596579}</style></head><body>
+        <h1>Research Evidence Report — ${escapeHtml(molecule)}</h1>
+        <small>Report ID: ${escapeHtml(results?.requestId || 'N/A')} | Generated: ${escapeHtml(results?.generatedAt || reportDate)} | Evidence contract: ${escapeHtml(results?.evidenceContractVersion || 'not supplied')}</small>
+        <section><h2>Provenance</h2><p>${escapeHtml(dataMode)} / ${escapeHtml(verificationStatus)}. ${escapeHtml(provenanceDescriptions[dataMode] || provenanceDescriptions.UNAVAILABLE)}</p></section>
+        <section><h2>Summary</h2><p>${escapeHtml(results?.results?.summary?.overallAssessment || 'No summary available.')}</p></section>
+        <section><h2>Live sources</h2><ul>${sourceRows}</ul></section>
+        <section><h2>GNN candidate ranking</h2><p>${prediction.dataMode === 'MODEL_PREDICTION' ? 'Model prediction; not verified clinical evidence or a probability of success.' : escapeHtml(prediction.unavailableReason?.message || 'Ranking unavailable.')}</p>${candidates ? `<ol>${candidates}</ol>` : ''}</section>
+        <section><h2>Source records</h2>${citationRows ? `<ol>${citationRows}</ol>` : '<p>No source-backed records available.</p>'}</section>
+        </body></html>`;
+    }
 
     let content = `
 <!DOCTYPE html>
@@ -225,8 +262,14 @@ const ReportGenerator = ({
     <div class="meta">
       <span>Generated: ${reportDate}</span>
       <span>Mode: ${mode === 'secure' ? 'Secure (Local)' : 'Cloud (Gemini)'}</span>
-      <span>Report ID: ${results?.request_id || 'N/A'}</span>
+      <span>Report ID: ${escapeHtml(results?.requestId || results?.request_id || 'N/A')}</span>
     </div>
+  </div>
+  <div class="section">
+    <h2>Evidence &amp; Provenance</h2>
+    <p><strong>${escapeHtml(dataMode)}</strong> / ${escapeHtml(verificationStatus)}</p>
+    <p>${escapeHtml(provenanceDescriptions[dataMode] || provenanceDescriptions.UNAVAILABLE)}</p>
+    <p>Evidence contract: v${escapeHtml(results?.evidenceContractVersion || 'not supplied')}</p>
   </div>
 `;
 
@@ -365,37 +408,31 @@ const ReportGenerator = ({
 
     // Recommendations
     if (selectedSections.recommendations) {
+      const recommendations = Array.isArray(results?.results?.recommendation_dossier)
+        ? results.results.recommendation_dossier
+        : [];
       content += `
   <div class="section">
     <h2>Recommendations</h2>
-    <p>Based on our multi-agent AI analysis, we recommend the following actions:</p>
-    <ul style="margin-left: 20px; margin-top: 10px;">
-      <li style="margin-bottom: 8px;">Conduct detailed FTO analysis with IP counsel</li>
-      <li style="margin-bottom: 8px;">Review preclinical toxicity data</li>
-      <li style="margin-bottom: 8px;">Engage KOLs for clinical advisory</li>
-      <li style="margin-bottom: 8px;">Develop partnership strategy for development</li>
-    </ul>
+    ${recommendations.length ? `<ul style="margin-left: 20px; margin-top: 10px;">${recommendations.map((item) => `
+      <li style="margin-bottom: 8px;"><strong>${escapeHtml(item.title)}</strong><br />
+      Provenance: ${escapeHtml(item.dataMode || 'UNAVAILABLE')} / ${escapeHtml(item.verificationStatus || 'NOT_AVAILABLE')}</li>
+    `).join('')}</ul>` : '<p>No recommendation with explicit provenance is available.</p>'}
   </div>
 `;
     }
 
     // Citations
     if (selectedSections.citations) {
+      const citations = (Array.isArray(results?.results?.citations) ? results.results.citations : [])
+        .filter((item) => item?.dataMode === 'SOURCE_BACKED' && item?.retrievedAt && (item?.sourceId || item?.sourceUrl));
       content += `
   <div class="section">
     <h2>Source Citations</h2>
-    <div class="citation">
-      <strong>PMID:34567890</strong> - Phase III Trial Results for Drug Repurposing Candidate. 
-      Smith J, et al. New England Journal of Medicine, 2024.
-    </div>
-    <div class="citation">
-      <strong>NCT04123456</strong> - A Randomized Study of Repurposing Opportunity. 
-      National Cancer Institute, Phase 2, Recruiting.
-    </div>
-    <div class="citation">
-      <strong>US10234567B2</strong> - Methods and Compositions for Treatment. 
-      Pfizer Inc., 2022.
-    </div>
+    ${citations.length ? citations.map((item) => `<div class="citation">
+      <strong>${escapeHtml(item.sourceId || item.id)}</strong> - ${escapeHtml(item.claim || 'Untitled source record')}<br />
+      Retrieved: ${escapeHtml(item.retrievedAt)} · ${escapeHtml(item.verificationStatus || 'UNVERIFIED_SOURCE')}
+    </div>`).join('') : '<p>No source-backed citations are available for this report.</p>'}
   </div>
 `;
     }
@@ -469,10 +506,10 @@ const ReportGenerator = ({
       <div className="p-4 border-b border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center">
           <FileText className="w-5 h-5 mr-2 text-blue-600" />
-          Investment Brief Report
+          {results?.researchMode === 'live' ? 'Research Evidence Report' : 'Investment Brief Report'}
         </h3>
         <p className="text-sm text-gray-500 mt-1">
-          Generate a comprehensive PDF report for stakeholders
+          {results?.researchMode === 'live' ? 'Download the source-backed research record and separate model ranking' : 'Generate a comprehensive PDF report for stakeholders'}
         </p>
       </div>
 
@@ -549,14 +586,14 @@ const ReportGenerator = ({
           ) : (
             <>
               <FileDown className="w-5 h-5" />
-              <span>Generate Investment Brief</span>
+              <span>{results?.researchMode === 'live' ? 'Generate Research Report' : 'Generate Investment Brief'}</span>
             </>
           )}
         </button>
 
         {/* Info Text */}
         <p className="text-xs text-gray-500 text-center mt-3">
-          Report will open in a new tab. Use your browser's "Save as PDF" option.
+          Report will open in a new tab. Use your browser&apos;s &quot;Save as PDF&quot; option.
         </p>
       </div>
     </div>

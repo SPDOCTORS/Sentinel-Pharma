@@ -41,7 +41,11 @@ const validateResearchRequest = [
   body('mode')
     .optional()
     .isIn(['secure', 'cloud'])
-    .withMessage('Mode must be either "secure" or "cloud"')
+    .withMessage('Mode must be either "secure" or "cloud"'),
+  body('disease').optional().trim().isLength({ min: 2, max: 200 })
+    .withMessage('Disease must be between 2 and 200 characters'),
+  body('researchMode').optional().isIn(['live', 'demo'])
+    .withMessage('Research mode must be live or demo')
 ];
 
 const validateRequestId = [

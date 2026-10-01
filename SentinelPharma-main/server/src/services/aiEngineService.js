@@ -64,7 +64,7 @@ aiClient.interceptors.response.use(
  * @param {string} params.provider - AI model provider (ollama/gemini)
  * @returns {Object} Aggregated analysis results
  */
-const analyzeCompound = async ({ molecule, mode, requestId, agents, provider }) => {
+const analyzeCompound = async ({ molecule, disease, researchMode = 'live', mode, requestId, agents, provider }) => {
   try {
     logger.info('Initiating compound analysis', { molecule, mode, requestId, provider });
 
@@ -73,6 +73,8 @@ const analyzeCompound = async ({ molecule, mode, requestId, agents, provider }) 
       method: 'POST',
       data: {
         molecule,
+        disease,
+        research_mode: researchMode,
         mode,
         request_id: requestId,
         agents,

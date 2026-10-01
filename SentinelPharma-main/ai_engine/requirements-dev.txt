@@ -1,0 +1,4 @@
+# Test environment for SentinelPharma AI Engine.
+# Install with: python -m pip install -r requirements-dev.txt
+# The application requirements already include pytest and its async/mock helpers.
+-r requirements.txt

@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     
     # Cloud AI - Google Gemini
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-2.0-flash-exp"
+    GEMINI_MODEL: str = "gemini-3.8-flash"
     GEMINI_ENABLED: bool = True
     
     # Legacy setting

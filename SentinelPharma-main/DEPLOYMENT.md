@@ -17,6 +17,8 @@ Create a `.env.prod` file on the server. Do not commit it.
 MONGO_ROOT_USERNAME=admin
 MONGO_ROOT_PASSWORD=replace-with-a-long-random-password
 AUTH_TOKEN_SECRET=replace-with-at-least-32-random-bytes
+INTERNAL_SERVICE_TOKEN=replace-with-a-long-random-secret
+REDIS_PASSWORD=replace-with-a-long-random-secret
 GEMINI_API_KEY=optional-cloud-provider-key
 ```
 
@@ -81,6 +83,8 @@ Before calling the deployment production-ready, verify:
 - OTP challenges expire through Redis.
 - Watchlist entries and alert read state persist after restart.
 - `AUTH_TOKEN_SECRET` remains stable across restarts.
+- `INTERNAL_SERVICE_TOKEN` is set once and injected identically into the server and AI engine.
+- Redis rejects unauthenticated connections and the server `/ready` endpoint is unhealthy if Redis is unavailable.
 - The AI engine can train or load a GNN artifact.
 - Disease-first discovery labels each result as `validated`, `repurposed`, `predicted`, or `fallback`.
 - Logs do not print raw secrets or full OTP destinations.

@@ -1,5 +1,5 @@
 const labels = {
-  SOURCE_BACKED: 'Verified source',
+  SOURCE_BACKED: 'Source-backed evidence',
   MODEL_PREDICTION: 'Model prediction',
   DEMO_SYNTHETIC: 'Demo / synthetic',
   UNAVAILABLE: 'Unavailable'
@@ -12,8 +12,11 @@ const styles = {
   UNAVAILABLE: 'bg-rose-500/20 text-rose-100 border-rose-300/40'
 };
 
-export default function EvidenceModeBadge({ dataMode = 'UNAVAILABLE' }) {
+export default function EvidenceModeBadge({ dataMode = 'UNAVAILABLE', verificationStatus }) {
+  const label = dataMode === 'SOURCE_BACKED' && verificationStatus === 'VERIFIED_SOURCE'
+    ? 'Verified source record'
+    : labels[dataMode] || labels.UNAVAILABLE;
   return <span className={`text-xs px-2 py-1 rounded-lg border font-semibold ${styles[dataMode] || styles.UNAVAILABLE}`}>
-    {labels[dataMode] || labels.UNAVAILABLE}
+    {label}
   </span>;
 }

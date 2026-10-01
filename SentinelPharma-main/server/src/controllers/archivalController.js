@@ -10,7 +10,11 @@ const mongoose = require('mongoose');
 const { ResearchReport, User, AuditLog } = require('../models');
 const { logger } = require('../utils/logger');
 const PDFDocument = require('pdfkit');
-const { normalizeLegacyEvidence, summarizeDataModes } = require('../utils/evidencePolicy');
+const {
+  EVIDENCE_CONTRACT_VERSION,
+  normalizeLegacyEvidence,
+  summarizeDataModes
+} = require('../utils/evidencePolicy');
 
 // Historical records predate the provenance contract. Normalize only the response;
 // stored reports remain unchanged for auditability.
@@ -18,11 +22,15 @@ const normalizeReportEvidence = (report) => {
   const plain = typeof report?.toObject === 'function' ? report.toObject() : report;
   const citations = Array.isArray(plain?.results?.citations) ? plain.results.citations : [];
   const normalizedCitations = citations.map(normalizeLegacyEvidence);
+  const verificationStates = [...new Set(normalizedCitations.map((item) => item.verificationStatus))];
   return {
     ...plain,
     evidence: {
+      evidenceContractVersion: EVIDENCE_CONTRACT_VERSION,
       citations: normalizedCitations,
-      verificationStatus: normalizedCitations.length ? 'LEGACY_UNVERIFIED' : 'UNAVAILABLE',
+      verificationStatus: verificationStates.length === 1
+        ? verificationStates[0]
+        : (verificationStates.length > 1 ? 'MIXED' : 'NOT_AVAILABLE'),
       dataModes: summarizeDataModes(normalizedCitations)
     }
   };

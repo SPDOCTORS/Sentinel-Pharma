@@ -43,13 +43,21 @@ import AgentDetailPanel from '../components/dashboard/AgentDetailPanel';
 import ComprehensiveSummary from '../components/dashboard/ComprehensiveSummary';
 import BenchmarkProductPanel from '../components/dashboard/BenchmarkProductPanel';
 import AutoSuggestInput from '../components/dashboard/AutoSuggestInput';
-import CitationPanel from '../components/dashboard/CitationPanel';
+import CitationPanel, { CitationSidebar } from '../components/dashboard/CitationPanel';
+import LiveResearchSummary from '../components/dashboard/LiveResearchSummary';
 import ReportGenerator from '../components/dashboard/ReportGenerator';
 import WatchAlertModule from '../components/dashboard/WatchAlertModule';
 import RepurposingDiscoveryPanel from '../components/dashboard/RepurposingDiscoveryPanel';
 import ExperimentalRepurposingExplorer from '../components/dashboard/ExperimentalRepurposingExplorer';
 import KnowledgeGraphEnhanced from '../components/graph/KnowledgeGraphEnhanced';
 import StrategySelector from '../components/StrategySelector';
+import EvidenceProvenanceNotice from '../components/ui/EvidenceProvenanceNotice';
+
+const apiErrorMessage = (error, fallback) => {
+  const payload = error?.response?.data;
+  return payload?.unavailableReason?.message || payload?.error?.message ||
+    (typeof payload?.error === 'string' ? payload.error : null) || fallback;
+};
 
 const ResearchDashboard = () => {
   // useResearch gives safe defaults if provider isn't present
@@ -58,6 +66,9 @@ const ResearchDashboard = () => {
   const { user } = useAuth();
 
   const [drugName, setDrugName] = useState('');
+  const [indication, setIndication] = useState('');
+  const [researchMode, setResearchMode] = useState('live');
+  const [selectedCitation, setSelectedCitation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
@@ -101,14 +112,14 @@ const ResearchDashboard = () => {
     setError(null);
     setResults(null);
     setSelectedAgent(null);
-    setActiveTab('agents');
+    setActiveTab(researchMode === 'live' ? 'results' : 'agents');
 
     // update statuses to thinking
     setAgentStatuses(prev => prev.map(agent => ({ ...agent, status: 'thinking' })));
 
     try {
       // Actual API call with selected model provider
-      const response = await researchService.analyze(drugName, privacyMode, selectedModel);
+      const response = await researchService.analyze(drugName, privacyMode, selectedModel, indication.trim() || null, researchMode);
 
       setResults(response.data);
 
@@ -159,10 +170,10 @@ const ResearchDashboard = () => {
         };
       }));
 
-      setActiveTab('agents');
+      setActiveTab(researchMode === 'live' ? 'results' : 'agents');
     } catch (err) {
       console.error('Research failed:', err);
-      setError(err.response?.data?.error || 'Failed to process research request');
+      setError(apiErrorMessage(err, 'Failed to process research request'));
       setAgentStatuses(prev => prev.map(agent => ({ ...agent, status: 'error' })));
     } finally {
       setIsLoading(false);
@@ -191,7 +202,7 @@ const ResearchDashboard = () => {
       setCandidateEvidence({});
     } catch (err) {
       console.error('Repurposing discovery failed:', err);
-      setDiscoveryError(err.response?.data?.error || 'Failed to discover repurposing candidates');
+      setDiscoveryError(apiErrorMessage(err, 'Failed to discover repurposing candidates'));
     } finally {
       setDiscoveryLoading(false);
     }
@@ -325,6 +336,17 @@ const ResearchDashboard = () => {
             )}
           </div>
 
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Disease or indication (optional)
+              <input value={indication} onChange={(event) => setIndication(event.target.value)} disabled={isLoading} placeholder="e.g., pancreatic cancer" className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3 text-slate-900" />
+            </label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Research mode
+              <select value={researchMode} onChange={(event) => setResearchMode(event.target.value)} disabled={isLoading} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3 text-slate-900">
+                <option value="live">Live evidence</option>
+                <option value="demo">Synthetic demonstration</option>
+              </select>
+            </label>
+          </div>
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <AutoSuggestInput
@@ -357,7 +379,7 @@ const ResearchDashboard = () => {
               ) : (
                 <>
                   <Brain className="w-5 h-5" />
-                  <span>Analyze with 10 Agents</span>
+                  <span>{researchMode === 'live' ? 'Retrieve live evidence' : 'Run demonstration'}</span>
                 </>
               )}
             </button>
@@ -371,7 +393,7 @@ const ResearchDashboard = () => {
           }`}>
             <Shield className="w-4 h-4" />
             <span>
-              Processing in <strong>{privacyMode === 'secure' ? 'Local Secure Mode (Llama 3)' : 'Cloud Mode (Gemini)'}</strong>
+              {researchMode === 'live' ? 'Live retrieval uses PubMed and ClinicalTrials.gov; GNN ranking is shown separately when available.' : <>Synthetic demonstration in <strong>{privacyMode === 'secure' ? 'Local Secure Mode' : 'Cloud Mode'}</strong></>}
             </span>
           </div>
         </form>
@@ -386,7 +408,7 @@ const ResearchDashboard = () => {
       )}
 
       {/* Agent Status Cards */}
-      {(isLoading || results) && (
+      {(researchMode === 'demo' && (isLoading || results)) && (
         <div className="dash-card rounded-3xl p-6 md:p-7 space-y-5 animate-rise">
           <div className="flex items-center justify-between">
             <div>
@@ -434,10 +456,10 @@ const ResearchDashboard = () => {
             <Brain className="w-8 h-8 text-cyan-600 animate-pulse" />
           </div>
           <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            Agents Thinking...
+            {researchMode === 'live' ? 'Retrieving source evidence...' : 'Agents Thinking...'}
           </h3>
           <p className="text-gray-600">
-            Our AI agents are analyzing {drugName} for repurposing opportunities
+            {researchMode === 'live' ? `Checking PubMed and ClinicalTrials.gov for ${drugName}` : `Our AI agents are analyzing ${drugName} for repurposing opportunities`}
           </p>
           <div className="mt-6 flex justify-center">
             <div className="flex space-x-1">
@@ -464,7 +486,7 @@ const ResearchDashboard = () => {
                   <CheckCircle2 className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">Analysis Complete!</h3>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">{results.researchMode === 'live' ? 'Research retrieval complete' : 'Analysis Complete!'}</h3>
                   <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">
                     <span className="font-medium text-emerald-600">{drugName}</span> analyzed successfully •
                     <span className="text-gray-400 ml-1">{results.results?.processingTimeMs || 0}ms</span>
@@ -491,6 +513,9 @@ const ResearchDashboard = () => {
                       </div>
                     </div>
                   )}
+                  <div className="mt-3 max-w-2xl">
+                    <EvidenceProvenanceNotice payload={results} />
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -504,8 +529,9 @@ const ResearchDashboard = () => {
                   </Link>
                 )}
                 <ReportGenerator
-                  data={results}
+                  results={results}
                   molecule={drugName}
+                  mode={results.processingMode}
                 />
               </div>
             </div>
@@ -517,10 +543,10 @@ const ResearchDashboard = () => {
               <div className="bg-white dark:bg-slate-800 rounded-t-xl">
                 <nav className="flex space-x-1 p-2.5 md:p-3 overflow-x-auto">
                   {[
-                    { id: 'results', label: 'Summary & ROI', icon: TrendingUp },
-                    { id: 'graph', label: 'Knowledge Graph', icon: Network },
+                    { id: 'results', label: results.researchMode === 'live' ? 'Evidence summary' : 'Summary & ROI', icon: TrendingUp },
+                    ...(results.researchMode === 'live' ? [] : [{ id: 'graph', label: 'Knowledge Graph', icon: Network }]),
                     { id: 'citations', label: 'Citations', icon: FileText },
-                    { id: 'watch', label: 'Watch & Alert', icon: Eye }
+                    ...(results.researchMode === 'live' ? [] : [{ id: 'watch', label: 'Watch & Alert', icon: Eye }])
                   ].map((tab) => (
                     <button
                       key={tab.id}
@@ -544,8 +570,7 @@ const ResearchDashboard = () => {
               {/* Results Tab */}
               {activeTab === 'results' && (
                 <div className="space-y-6">
-                  <BenchmarkProductPanel agentResults={results.results} molecule={drugName} />
-                  <ComprehensiveSummary agentResults={results.results} molecule={drugName} />
+                  {results.researchMode === 'live' ? <LiveResearchSummary report={results} /> : <><BenchmarkProductPanel agentResults={results.results} molecule={drugName} /><ComprehensiveSummary agentResults={results.results} molecule={drugName} /></>}
                 </div>
               )}
 
@@ -561,6 +586,7 @@ const ResearchDashboard = () => {
                 <CitationPanel
                   agentResults={results.results}
                   molecule={drugName}
+                  onViewCitation={setSelectedCitation}
                 />
               )}
 
@@ -586,6 +612,7 @@ const ResearchDashboard = () => {
       )}
 
       {/* Agent Detail Modal */}
+      {selectedCitation && <CitationSidebar isOpen citation={selectedCitation} onClose={() => setSelectedCitation(null)} />}
       {selectedAgent && (
         <AgentDetailPanel
           agent={agentStatuses.find(a => a.name === selectedAgent)}

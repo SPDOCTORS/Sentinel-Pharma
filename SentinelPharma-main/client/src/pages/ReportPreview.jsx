@@ -8,6 +8,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Download, Share2, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { researchService } from '../services/api';
+import LiveResearchSummary from '../components/dashboard/LiveResearchSummary';
+import CitationPanel from '../components/dashboard/CitationPanel';
 
 const ReportPreview = () => {
   const { requestId } = useParams();
@@ -150,7 +152,7 @@ const ReportPreview = () => {
         </div>
       )}
 
-      {!isLoading && !error && report && (
+      {!isLoading && report && (
         <>
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -186,7 +188,11 @@ const ReportPreview = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-lg p-6">
+          {report.researchMode === 'live' ? <div className="bg-white rounded-2xl shadow-lg p-6 space-y-6">
+            <h2 className="text-xl font-semibold">Live research evidence</h2>
+            <LiveResearchSummary report={report} />
+            <CitationPanel agentResults={report.results} />
+          </div> : <div className="bg-white rounded-2xl shadow-lg p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Agent Outputs</h2>
             {agentEntries.length === 0 ? (
               <p className="text-gray-500">No agent data is available for this request.</p>
@@ -204,7 +210,7 @@ const ReportPreview = () => {
                 ))}
               </div>
             )}
-          </div>
+          </div>}
         </>
       )}
     </div>

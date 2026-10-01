@@ -63,12 +63,13 @@ from app.agents.regulatory_agent import RegulatoryAgent
 from app.agents.patient_sentiment_agent import PatientSentimentAgent
 from app.agents.orchestrator import MasterOrchestrator
 from app.core.config import settings
-from app.core.evidence import unavailable_response
+from app.core.evidence import EVIDENCE_CONTRACT_VERSION, unavailable_response
 from app.core.privacy_toggle import PrivacyManager
 from app.services.gnn import GNNRepurposingService
 from app.services.gnn.experimental_candidate_service import ExperimentalCandidateService
 from app.services.pubmed_service import PubMedService, PubMedUnavailable
 from app.services.clinical_trials_service import ClinicalTrialsService, ClinicalTrialsUnavailable
+from app.services.research_workflow import analyze_live_research
 
 
 # ======================
@@ -81,6 +82,8 @@ class AnalyzeRequest(BaseModel):
     mode: str = Field(default="auto", pattern="^(secure|cloud|auto)$", description="Processing mode: auto (detect best), secure (force local), cloud (any cloud provider)")
     provider: Optional[str] = Field(None, pattern="^(ollama|gemini)$", description="Specific LLM provider: ollama (llama3), gemini (gemini-1.5-flash)")
     request_id: str = Field(..., description="Unique request identifier")
+    disease: Optional[str] = Field(default=None, min_length=2, max_length=200)
+    research_mode: str = Field(default="live", pattern="^(live|demo)$")
     agents: Optional[List[str]] = Field(
         default=[
             "clinical",
@@ -259,6 +262,9 @@ class ExperimentalExternalEvidence(BaseModel):
 
 
 class ExperimentalCandidateResult(BaseModel):
+    evidenceContractVersion: str = EVIDENCE_CONTRACT_VERSION
+    dataMode: str = "MODEL_PREDICTION"
+    verificationStatus: str = "MODEL_INFERENCE"
     candidate: ExperimentalCandidatePrediction
     model: ExperimentalModelLineage
     structuralEvidence: ExperimentalStructuralEvidence
@@ -267,6 +273,9 @@ class ExperimentalCandidateResult(BaseModel):
 
 
 class ExperimentalCandidateRankingResponse(BaseModel):
+    evidenceContractVersion: str = EVIDENCE_CONTRACT_VERSION
+    dataMode: str = "MODEL_PREDICTION"
+    verificationStatus: str = "MODEL_INFERENCE"
     experimental: bool
     drug: ExperimentalEntity
     candidateCount: int
@@ -285,6 +294,9 @@ class ExperimentalKnownIndication(BaseModel):
 
 
 class ExperimentalKnownIndicationsResponse(BaseModel):
+    evidenceContractVersion: str = EVIDENCE_CONTRACT_VERSION
+    dataMode: str = "SOURCE_BACKED"
+    verificationStatus: str = "UNVERIFIED_SOURCE"
     experimental: bool
     drug: ExperimentalEntity
     indicationCount: int
@@ -462,7 +474,10 @@ async def require_internal_service_token(request: Request, call_next):
     if not expected or not secrets.compare_digest(provided, expected):
         return JSONResponse(
             status_code=401,
-            content={"success": False, "error": "Internal service authentication required", "dataMode": "ERROR"}
+            content=unavailable_response(
+                "INTERNAL_AUTH_REQUIRED",
+                "Internal service authentication required",
+            ),
         )
     return await call_next(request)
 
@@ -471,7 +486,6 @@ async def require_internal_service_token(request: Request, call_next):
 async def block_synthetic_research_in_production(request: Request, call_next):
     """The existing agent implementations are demos until source adapters exist."""
     synthetic_paths = (
-        "/api/analyze",
         "/api/orchestrate",
         "/api/agents/",
     )
@@ -487,6 +501,8 @@ async def block_synthetic_research_in_production(request: Request, call_next):
             if isinstance(payload, dict):
                 payload.setdefault("dataMode", "DEMO_SYNTHETIC")
                 payload.setdefault("verificationStatus", "DEMO_ONLY")
+                payload.setdefault("evidenceContractVersion", EVIDENCE_CONTRACT_VERSION)
+                payload.setdefault("generatedAt", datetime.now().astimezone().isoformat())
                 return JSONResponse(status_code=response.status_code, content=payload)
         except (json.JSONDecodeError, UnicodeDecodeError):
             pass
@@ -540,6 +556,7 @@ async def search_pubmed_evidence(request: PubMedSearchRequest):
         result = await PubMedService().search(request.query, request.limit)
         return {
             "success": True,
+            "evidenceContractVersion": EVIDENCE_CONTRACT_VERSION,
             "dataMode": "SOURCE_BACKED",
             "verificationStatus": "VERIFIED_SOURCE",
             "source": "PubMed",
@@ -564,7 +581,8 @@ async def search_clinical_trials_evidence(request: ClinicalTrialsSearchRequest):
     try:
         result = await ClinicalTrialsService().search(request.drug, request.condition, request.limit, request.query)
         return {
-            "success": True, "dataMode": "SOURCE_BACKED", "verificationStatus": "VERIFIED_SOURCE",
+            "success": True, "evidenceContractVersion": EVIDENCE_CONTRACT_VERSION,
+            "dataMode": "SOURCE_BACKED", "verificationStatus": "VERIFIED_SOURCE",
             "source": "ClinicalTrials.gov", "drug": result["drug"], "condition": result["condition"],
             "query": result["query"], "retrievedAt": result["retrievedAt"],
             "count": len(result["evidence"]), "evidence": result["evidence"],
@@ -686,10 +704,22 @@ async def analyze_compound(request: AnalyzeRequest):
     Returns:
         Aggregated analysis from all agents including ROI calculations
     """
+    if request.research_mode == "live":
+        if request.mode == "secure":
+            return JSONResponse(
+                status_code=422,
+                content=unavailable_response(
+                    "LIVE_RETRIEVAL_REQUIRES_CLOUD_MODE",
+                    "Live PubMed and ClinicalTrials.gov retrieval requires cloud mode.",
+                ),
+            )
+        return await analyze_live_research(
+            request.molecule, request.disease, request.request_id, app.state.gnn_repurposing
+        )
     if not settings.DEMO_MODE:
-        raise HTTPException(
+        return JSONResponse(
             status_code=503,
-            detail="Research execution is unavailable until source-backed agents are configured. Set DEMO_MODE=true only for clearly labelled synthetic demonstrations."
+            content=unavailable_response("DEMO_DISABLED", "Synthetic demonstration mode is disabled."),
         )
 
     logger.info(
@@ -909,6 +939,9 @@ async def analyze_compound(request: AnalyzeRequest):
             agents_count=len(results["agents_executed"])
         )
         results["dataMode"] = "DEMO_SYNTHETIC"
+        results["verificationStatus"] = "DEMO_ONLY"
+        results["evidenceContractVersion"] = EVIDENCE_CONTRACT_VERSION
+        results["generatedAt"] = datetime.now().astimezone().isoformat()
         return results
         
     except Exception as e:
@@ -952,7 +985,10 @@ async def get_market_intelligence(request: ROIRequest):
         
         return {
             "success": True,
+            "evidenceContractVersion": EVIDENCE_CONTRACT_VERSION,
             "dataMode": "DEMO_SYNTHETIC",
+            "verificationStatus": "DEMO_ONLY",
+            "generatedAt": datetime.now().astimezone().isoformat(),
             "request_id": request.request_id,
             "data": result
         }
@@ -1425,7 +1461,9 @@ async def gnn_repurpose_prediction(request: GNNRepurposeRequest):
         result = gnn_service.predict(request.disease, request.top_k)
         return {
             "success": True,
+            "evidenceContractVersion": EVIDENCE_CONTRACT_VERSION,
             "dataMode": "MODEL_PREDICTION",
+            "verificationStatus": "MODEL_INFERENCE",
             "model": result["model"],
             "disease": result["disease"],
             "candidates": result["candidates"],

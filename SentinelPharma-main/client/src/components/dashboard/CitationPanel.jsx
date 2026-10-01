@@ -22,6 +22,10 @@ import {
   ChevronRight,
   Database
 } from 'lucide-react';
+import EvidenceModeBadge from '../ui/EvidenceModeBadge';
+
+const isTraceableSource = (citation) => citation?.dataMode === 'SOURCE_BACKED' &&
+  Boolean(citation?.retrievedAt) && Boolean(citation?.sourceId || citation?.sourceUrl);
 
 // Citable text component with hover functionality
 export const CitableText = ({ 
@@ -122,8 +126,7 @@ export const CitableText = ({
 export const CitationSidebar = ({ 
   isOpen, 
   onClose, 
-  citation,
-  highlightedText = '' 
+  citation
 }) => {
   if (!isOpen || !citation) return null;
 
@@ -241,7 +244,7 @@ export const CitationSidebar = ({
               <span className="text-sm font-medium text-yellow-800">Relevant Excerpt</span>
             </div>
             <p className="text-sm text-gray-700 italic">
-              "{citation.excerpt}"
+              &ldquo;{citation.excerpt}&rdquo;
             </p>
           </div>
         )}
@@ -267,7 +270,9 @@ export const CitationSidebar = ({
       <div className="p-4 border-t border-gray-200 bg-gray-50">
         <div className="flex items-center space-x-2 text-xs text-gray-500">
           <CheckCircle2 className="w-4 h-4 text-green-500" />
-          <span>Source identity verified; scientific validity has not been established.</span>
+          <span>{citation.verificationStatus === 'VERIFIED_SOURCE'
+            ? 'Source identity verified; scientific validity has not been established.'
+            : 'Source record is unverified; scientific validity has not been established.'}</span>
         </div>
       </div>
     </div>
@@ -284,7 +289,7 @@ const CitationPanel = ({
   // Aggregate citations from all agent results
   const getAllCitations = () => {
     if (Array.isArray(agentResults?.citations) && agentResults.citations.length > 0) {
-      return agentResults.citations;
+      return agentResults.citations.filter(isTraceableSource);
     }
 
     return [];
@@ -293,7 +298,9 @@ const CitationPanel = ({
   const citations = getAllCitations();
   const filteredCitations = selectedCategory === 'all' 
     ? citations 
-    : citations.filter(c => c.type === selectedCategory || (selectedCategory === 'pubmed' && c.sourceType === 'PUBMED'));
+    : citations.filter(c => c.type === selectedCategory ||
+      (selectedCategory === 'pubmed' && c.sourceType === 'PUBMED') ||
+      (selectedCategory === 'clinicaltrials' && c.sourceType === 'CLINICALTRIALS_GOV'));
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg dark:shadow-2xl overflow-hidden border border-gray-100 dark:border-slate-700">
@@ -347,6 +354,7 @@ const CitationPanel = ({
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
+                    <EvidenceModeBadge dataMode={citation.dataMode} verificationStatus={citation.verificationStatus} />
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                       (citation.sourceType === 'PUBMED' || citation.type === 'pubmed') ? 'bg-blue-100 text-blue-700' :
                       citation.type === 'clinicaltrials' ? 'bg-green-100 text-green-700' :
@@ -363,6 +371,7 @@ const CitationPanel = ({
                   <div className="text-xs text-gray-500 mt-1">
                     {Array.isArray(citation.metadata?.authors) ? citation.metadata.authors.join(', ') : (citation.authors || citation.sponsor || citation.assignee || citation.sourceName || citation.source)}
                   </div>
+                  <div className="text-xs text-gray-400 mt-1">Retrieved {citation.retrievedAt}</div>
                 </div>
                 <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-blue-600 flex-shrink-0 mt-1" />
               </div>

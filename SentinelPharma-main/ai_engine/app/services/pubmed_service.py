@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 import httpx
 
 from app.core.config import settings
+from app.core.evidence import EVIDENCE_CONTRACT_VERSION, EvidenceItem
 
 
 class PubMedUnavailable(Exception):
@@ -42,7 +43,11 @@ class PubMedService:
                 raise PubMedUnavailable("Malformed ESearch response")
             records = await self._fetch_records(client, ids)
             retrieved_at = datetime.now(timezone.utc).isoformat()
-            return {"query": query, "retrievedAt": retrieved_at, "evidence": [self._normalize(record, retrieved_at) for record in records]}
+            evidence = [
+                EvidenceItem(**self._normalize(record, retrieved_at)).model_dump(mode="json", exclude_none=True)
+                for record in records
+            ]
+            return {"query": query, "retrievedAt": retrieved_at, "evidence": evidence}
         except (httpx.HTTPError, ValueError, ET.ParseError, PubMedUnavailable) as exc:
             if isinstance(exc, ValueError) and str(exc) == "query is required":
                 raise
@@ -80,6 +85,7 @@ class PubMedService:
         abstract = " ".join("".join(node.itertext()).strip() for node in article.findall(".//Abstract/AbstractText")) or None
         published = self._text(article, ".//JournalIssue/PubDate/Year") or self._text(article, ".//ArticleDate/Year")
         return {
+            "evidenceContractVersion": EVIDENCE_CONTRACT_VERSION,
             "id": f"PMID:{pmid}", "claim": self._text(article, "ArticleTitle"), "sourceType": "PUBMED", "sourceName": "PubMed",
             "sourceId": pmid, "sourceUrl": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/", "retrievedAt": retrieved_at,
             "publishedAt": published, "evidenceType": "BIOMEDICAL_LITERATURE", "dataMode": "SOURCE_BACKED",

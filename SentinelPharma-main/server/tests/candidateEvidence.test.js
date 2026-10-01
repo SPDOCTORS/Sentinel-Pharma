@@ -22,6 +22,9 @@ test('PubMed co-mention is not represented as validation', () => {
 
 test('candidate summary keeps prediction and evidence counts separate', () => {
   const summary = buildCandidateEvidenceSummary('Metformin', { score: 0.72 }, [], [trial], 'pancreatic cancer');
-  expect(summary.prediction).toEqual({ dataMode: 'MODEL_PREDICTION', rankingScore: 0.72 });
+  expect(summary.prediction).toEqual({
+    evidenceContractVersion: '1.0', dataMode: 'MODEL_PREDICTION',
+    verificationStatus: 'MODEL_INFERENCE', rankingScore: 0.72
+  });
   expect(summary.evidenceSummary).toEqual({ pubmedCount: 0, clinicalTrialCount: 1 });
 });
