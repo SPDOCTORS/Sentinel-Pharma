@@ -66,6 +66,8 @@ from app.core.config import settings
 from app.core.evidence import EVIDENCE_CONTRACT_VERSION, unavailable_response
 from app.core.privacy_toggle import PrivacyManager
 from app.services.gnn import GNNRepurposingService
+from app.services.gnn.frozen_v5_shadow_service import FrozenV5ShadowService
+from app.services.gnn.v5_evidence_graph_service import V5EvidenceGraphService
 from app.services.gnn.experimental_candidate_service import ExperimentalCandidateService
 from app.services.pubmed_service import PubMedService, PubMedUnavailable
 from app.services.clinical_trials_service import ClinicalTrialsService, ClinicalTrialsUnavailable
@@ -337,6 +339,9 @@ async def lifespan(app: FastAPI):
 
     # Initialize DrugBank + PyG repurposing service.
     app.state.gnn_repurposing = GNNRepurposingService(Path(__file__).resolve().parents[1])
+    # Read-only V5 inference remains shadow-only and cannot alter legacy training/update state.
+    app.state.v5_shadow_repurposing = FrozenV5ShadowService(Path(__file__).resolve().parents[1])
+    app.state.v5_evidence_graph = V5EvidenceGraphService(Path(__file__).resolve().parents[1])
     
     logger.info("All agents initialized successfully (10 core agents + orchestrator)")
     
@@ -714,7 +719,12 @@ async def analyze_compound(request: AnalyzeRequest):
                 ),
             )
         return await analyze_live_research(
-            request.molecule, request.disease, request.request_id, app.state.gnn_repurposing
+            request.molecule,
+            request.disease,
+            request.request_id,
+            app.state.gnn_repurposing,
+            app.state.v5_shadow_repurposing,
+            app.state.v5_evidence_graph,
         )
     if not settings.DEMO_MODE:
         return JSONResponse(

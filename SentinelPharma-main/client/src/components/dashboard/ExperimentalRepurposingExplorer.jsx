@@ -51,10 +51,10 @@ export default function ExperimentalRepurposingExplorer({ service }) {
     } catch (requestError) { setError(messageForError(requestError)); } finally { setEvidenceLoading(false); }
   };
 
-  return <section className="dash-surface rounded-3xl p-5 md:p-8 space-y-6 border border-violet-300/25 shadow-[0_0_40px_rgba(139,92,246,0.10)]">
+  return <section className="research-lab-panel space-y-6">
     <header className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="section-title text-2xl md:text-3xl font-extrabold text-cyan-100 flex items-center"><FlaskConical className="w-6 h-6 mr-2 text-violet-300" />Experimental Drug Repurposing</h2>
+        <h2 className="flex items-center text-xl font-bold tracking-tight text-white md:text-2xl"><FlaskConical className="w-6 h-6 mr-2 text-violet-300" />Experimental Drug Repurposing</h2>
         <span className="rounded-full border border-amber-300/40 bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-100">Experimental · Research Use</span>
       </div>
       <p className="rounded-xl border border-amber-300/30 bg-amber-500/10 p-3 text-sm text-amber-50">Experimental research system. Model rankings are not probabilities and do not establish therapeutic efficacy or provide clinical advice.</p>
@@ -69,7 +69,7 @@ export default function ExperimentalRepurposingExplorer({ service }) {
           {[5, 10, 20, 50].map((count) => <option key={count} value={count}>{count}</option>)}
         </select>
       </label>
-      <button type="submit" disabled={loading || !drugId.trim()} className="self-end btn-premium rounded-xl px-5 py-3 font-semibold text-slate-950 bg-gradient-to-r from-cyan-300 to-violet-300 disabled:opacity-60">
+      <button type="submit" disabled={loading || !drugId.trim()} className="self-end rounded-xl bg-violet-300 px-5 py-3 font-semibold text-slate-950 shadow-sm transition-colors hover:bg-violet-200 disabled:opacity-60">
         {loading ? <Loader2 className="w-5 h-5 animate-spin" aria-label="Loading candidates" /> : <span className="flex items-center gap-2"><Search className="w-4 h-4" />Load candidates</span>}
       </button>
     </form>

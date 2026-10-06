@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 
 const { User } = require('../models');
-const { cache, redisClient } = require('../utils/redis');
+const { otpStore } = require('../utils/otpStore');
 const { createToken, TOKEN_TTL_SECONDS } = require('../utils/authToken');
 const { requireAuth, revokeToken, getTokenFromRequest } = require('../middleware/auth');
 const { authFailuresTotal } = require('../utils/metrics');
@@ -62,10 +62,7 @@ const issueToken = (user) => createToken({
 });
 
 const saveOtpChallenge = async (key, challenge) => {
-  if (!redisClient.isReady) {
-    throw new Error('Redis is required for OTP storage but is not connected');
-  }
-  await cache.set(key, challenge, OTP_TTL_SECONDS);
+  return otpStore.set(key, challenge, OTP_TTL_SECONDS);
 };
 
 router.post('/request-otp', async (req, res) => {
@@ -98,8 +95,9 @@ router.post('/request-otp', async (req, res) => {
   }
 
   const otp = generateOtp();
+  let storage;
   try {
-    await saveOtpChallenge(getOtpKey(channel, destination), {
+    storage = await saveOtpChallenge(getOtpKey(channel, destination), {
       otp,
       attempts: 0,
       purpose,
@@ -123,7 +121,7 @@ router.post('/request-otp', async (req, res) => {
       channel,
       destination: maskedDestination,
       expiresIn: OTP_TTL_SECONDS,
-      storage: 'redis-ttl'
+      storage: `${storage}-ttl`
     },
     otpPreview: process.env.NODE_ENV === 'development' && process.env.AUTH_EXPOSE_OTP_PREVIEW === 'true'
       ? otp
@@ -157,20 +155,21 @@ router.post('/verify-otp', async (req, res) => {
   }
 
   const challengeKey = getOtpKey(channel, destination);
-  if (!redisClient.isReady) {
+  let challenge;
+  try {
+    challenge = await otpStore.get(challengeKey);
+  } catch (error) {
     return res.status(503).json({
       success: false,
       error: 'OTP service unavailable',
-      message: 'Redis is not connected'
+      message: process.env.NODE_ENV === 'development' ? error.message : 'Try again later'
     });
   }
-
-  const challenge = await cache.get(challengeKey);
   if (!challenge) {
     return res.status(400).json({ success: false, error: 'No OTP request found or OTP expired. Request a new OTP.' });
   }
   if (challenge.attempts >= OTP_MAX_ATTEMPTS) {
-    await cache.del(challengeKey);
+    await otpStore.delete(challengeKey);
     return res.status(429).json({ success: false, error: 'Too many failed attempts. Request a new OTP.' });
   }
   if (challenge.otp !== otp) {
@@ -205,7 +204,7 @@ router.post('/verify-otp', async (req, res) => {
 
   user.lastLogin = new Date();
   await user.save();
-  await cache.del(challengeKey);
+  await otpStore.delete(challengeKey);
 
   const token = issueToken(user);
   return res.status(200).json({

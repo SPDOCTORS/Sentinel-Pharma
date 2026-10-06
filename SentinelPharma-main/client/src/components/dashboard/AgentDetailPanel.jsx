@@ -20,7 +20,6 @@ import {
   Database,
   Ship,
   BarChart3,
-  ExternalLink,
   AlertTriangle,
   CheckCircle,
   Clock,
@@ -1403,7 +1402,7 @@ const AgentDetailPanel = ({ agent, data, onClose, molecule }) => {
                 <span className="text-sm font-semibold text-green-600">{doc.relevance}% match</span>
               </div>
               {doc.snippet && (
-                <p className="text-xs text-gray-600 mt-1.5 italic">"{doc.snippet}"</p>
+                <p className="text-xs text-gray-600 mt-1.5 italic">&quot;{doc.snippet}&quot;</p>
               )}
             </div>
           ))}
@@ -1624,6 +1623,13 @@ const AgentDetailPanel = ({ agent, data, onClose, molecule }) => {
       'See detailed metrics below'
     ];
   };
+
+  // Retained legacy demo renderers are intentionally dormant for existing demo payload shapes.
+  void generateMockData;
+  void renderMarketDetails;
+  void renderValidationDetails;
+  void renderKOLDetails;
+  void renderPathfinderDetails;
 
   // ===== RENDER AS MODAL POPUP =====
   return (

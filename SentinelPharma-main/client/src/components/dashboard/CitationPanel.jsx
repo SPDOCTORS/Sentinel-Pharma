@@ -303,19 +303,25 @@ const CitationPanel = ({
       (selectedCategory === 'clinicaltrials' && c.sourceType === 'CLINICALTRIALS_GOV'));
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg dark:shadow-2xl overflow-hidden border border-gray-100 dark:border-slate-700">
-      <div className="p-4 border-b border-gray-200 dark:border-slate-600">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-          <BookOpen className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+    <div className="research-citation-panel">
+      <div className="border-b border-[var(--research-border)] p-4 md:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+        <p className="research-eyebrow">Provenance ledger</p>
+        <h3 className="flex items-center text-lg font-semibold text-[var(--research-ink)]">
+          <BookOpen className="mr-2 h-5 w-5 text-[var(--research-primary)]" />
           Source Citations
         </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Zero-trust citation verification for AI-generated insights
+        <p className="mt-1 text-sm text-[var(--research-muted)]">
+          Trace source identifiers, retrieval timestamps, and backend verification status.
         </p>
+          </div>
+          <span className="research-count-label">{citations.length} traceable sources</span>
+        </div>
       </div>
 
       {/* Category Filter */}
-      <div className="px-4 py-2 border-b border-gray-100 dark:border-slate-700 flex space-x-2 overflow-x-auto bg-gray-50 dark:bg-slate-900">
+      <div className="flex space-x-2 overflow-x-auto border-b border-[var(--research-border)] bg-[var(--research-surface-muted)] px-4 py-2.5">
         {[
           { id: 'all', label: 'All Sources' },
           { id: 'pubmed', label: 'PubMed' },
@@ -326,10 +332,10 @@ const CitationPanel = ({
           <button
             key={cat.id}
             onClick={() => setSelectedCategory(cat.id)}
-            className={`px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+            className={`whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors ${
               selectedCategory === cat.id
-                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600'
+                ? 'border-[var(--research-border-strong)] bg-[var(--research-surface)] text-[var(--research-primary)]'
+                : 'border-transparent text-[var(--research-muted)] hover:text-[var(--research-ink)]'
             }`}
           >
             {cat.label}
@@ -338,7 +344,7 @@ const CitationPanel = ({
       </div>
 
       {/* Citations List */}
-      <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
+      <div className="max-h-[28rem] space-y-2 overflow-y-auto p-4">
         {filteredCitations.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             <Database className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -349,15 +355,15 @@ const CitationPanel = ({
             <button
               key={index}
               onClick={() => onViewCitation && onViewCitation(citation)}
-              className="w-full text-left p-3 bg-gray-50 hover:bg-blue-50 rounded-lg transition-colors group"
+              className="research-citation-row group"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
                     <EvidenceModeBadge dataMode={citation.dataMode} verificationStatus={citation.verificationStatus} />
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                    <span className={`research-id-label ${
                       (citation.sourceType === 'PUBMED' || citation.type === 'pubmed') ? 'bg-blue-100 text-blue-700' :
-                      citation.type === 'clinicaltrials' ? 'bg-green-100 text-green-700' :
+                      (citation.sourceType === 'CLINICALTRIALS_GOV' || citation.type === 'clinicaltrials') ? 'bg-green-100 text-green-700' :
                       citation.type === 'patent' ? 'bg-purple-100 text-purple-700' :
                       'bg-gray-100 text-gray-700'
                     }`}>
@@ -365,28 +371,28 @@ const CitationPanel = ({
                     </span>
                     <span className="text-xs text-gray-400">{citation.publishedAt || citation.year}</span>
                   </div>
-                  <div className="font-medium text-gray-900 text-sm truncate pr-4">
+                  <div className="pr-4 text-sm font-semibold leading-5 text-[var(--research-ink)]">
                     {citation.claim || citation.title}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="mt-1 line-clamp-1 text-xs text-[var(--research-muted)]">
                     {Array.isArray(citation.metadata?.authors) ? citation.metadata.authors.join(', ') : (citation.authors || citation.sponsor || citation.assignee || citation.sourceName || citation.source)}
                   </div>
-                  <div className="text-xs text-gray-400 mt-1">Retrieved {citation.retrievedAt}</div>
+                  <div className="mt-2 font-mono text-[11px] text-[var(--research-muted)]">Retrieved {citation.retrievedAt}</div>
                 </div>
-                <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-blue-600 flex-shrink-0 mt-1" />
+                <ExternalLink className="mt-1 h-4 w-4 flex-shrink-0 text-[var(--research-muted)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--research-primary)]" />
               </div>
               
               {/* Relevance bar */}
               {citation.relevance && (
                 <div className="mt-2 flex items-center space-x-2">
-                  <span className="text-xs text-gray-400">Relevance:</span>
-                  <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                  <span className="text-xs text-[var(--research-muted)]">Relevance</span>
+                  <div className="h-1.5 flex-1 rounded-full bg-[var(--research-border)]">
                     <div 
-                      className="bg-blue-500 h-1.5 rounded-full"
+                        className="h-1.5 rounded-full bg-[var(--research-primary)]"
                       style={{ width: `${citation.relevance * 100}%` }}
                     />
                   </div>
-                  <span className="text-xs font-medium text-gray-600">
+                  <span className="text-xs font-semibold text-[var(--research-ink)]">
                     {Math.round(citation.relevance * 100)}%
                   </span>
                 </div>
@@ -397,8 +403,8 @@ const CitationPanel = ({
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-gray-100 bg-gray-50">
-        <div className="flex items-center justify-between text-xs text-gray-500">
+      <div className="border-t border-[var(--research-border)] bg-[var(--research-surface-muted)] p-4">
+        <div className="flex flex-col gap-1 text-xs text-[var(--research-muted)] sm:flex-row sm:items-center sm:justify-between">
           <span>{citations.length} sources referenced</span>
           <span>Source verification status is supplied by the backend.</span>
         </div>

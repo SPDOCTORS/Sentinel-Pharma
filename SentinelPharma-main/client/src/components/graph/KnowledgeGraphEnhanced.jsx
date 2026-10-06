@@ -23,7 +23,6 @@ import {
   AlertCircle,
   Info,
   Download,
-  Filter,
   Search,
   RefreshCw,
   Eye,
@@ -33,10 +32,39 @@ import {
   Play,
   Pause,
   Route,
-  Focus
+  Focus,
+  ArrowLeft,
+  ArrowRight,
+  Keyboard
 } from 'lucide-react';
 
-const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
+const ENTITY_STYLES = {
+  drug: { label: 'Drug', color: '#8B5CF6', light: '#C4B5FD' },
+  protein: { label: 'Gene / target', color: '#14B8A6', light: '#99F6E4' },
+  pathway: { label: 'Pathway', color: '#F59E0B', light: '#FDE68A' },
+  disease: { label: 'Disease', color: '#F43F5E', light: '#FDA4AF' },
+  other: { label: 'Other entity', color: '#64748B', light: '#CBD5E1' }
+};
+
+const normalizeEntityType = (type = '') => {
+  const normalized = String(type).toLowerCase();
+  if (['drug', 'compound', 'molecule', 'chemical'].includes(normalized)) return 'drug';
+  if (['protein', 'gene', 'target', 'gene_target'].includes(normalized)) return 'protein';
+  if (['pathway', 'process', 'biological_process'].includes(normalized)) return 'pathway';
+  if (['disease', 'condition', 'indication', 'phenotype'].includes(normalized)) return 'disease';
+  return 'other';
+};
+
+const relationStyle = (type = '') => {
+  const normalized = String(type).toLowerCase();
+  if (normalized.includes('bind') || normalized.includes('target')) return { color: '#A78BFA', label: 'Binds / targets' };
+  if (normalized.includes('regulat') || normalized.includes('express')) return { color: '#2DD4BF', label: 'Regulates' };
+  if (normalized.includes('associat') || normalized.includes('indicat')) return { color: '#FB7185', label: 'Associated with' };
+  if (normalized.includes('pathway') || normalized.includes('participat')) return { color: '#FBBF24', label: 'Pathway evidence' };
+  return { color: '#94A3B8', label: 'Evidence relationship' };
+};
+
+const KnowledgeGraphEnhanced = ({ data, graphData, molecule, researchMode = 'demo' }) => {
   const [selectedNode, setSelectedNode] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -56,12 +84,12 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
   const [viewMode, setViewMode] = useState('lab');
   const [isOrbiting, setIsOrbiting] = useState(false);
   const [isPathfinderMode, setIsPathfinderMode] = useState(false);
-  const [pathSelection, setPathSelection] = useState({ from: null, to: null });
+  const [, setPathSelection] = useState({ from: null, to: null });
   const [pathStatus, setPathStatus] = useState('');
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 500 });
 
   // Enhanced mock data generator
-  const generateEnhancedGraph = useCallback((stats) => {
+  const generateEnhancedGraph = useCallback(() => {
     const mockNodes = [];
     const mockEdges = [];
     
@@ -70,7 +98,7 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
       id: 'drug_0',
       label: molecule || 'Drug',
       type: 'drug',
-      color: '#8B5CF6',
+      color: ENTITY_STYLES.drug.color,
       size: 25,
       x: 400,
       y: 300,
@@ -94,7 +122,7 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
         id: `target_${i}`,
         label: ['EGFR', 'VEGFR2', 'mTOR', 'PI3K', 'AKT', 'BRAF', 'MEK', 'ERK'][i] || `Target ${i + 1}`,
         type: 'protein',
-        color: '#10B981',
+        color: ENTITY_STYLES.protein.color,
         size: 18,
         x: 400 + Math.cos(angle) * radius,
         y: 300 + Math.sin(angle) * radius,
@@ -132,7 +160,7 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
         id: `pathway_${i}`,
         label: pathway.name,
         type: 'pathway',
-        color: '#F59E0B',
+        color: ENTITY_STYLES.pathway.color,
         size: 20,
         x: 400 + Math.cos(angle) * radius,
         y: 300 + Math.sin(angle) * radius,
@@ -167,7 +195,7 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
         id: `disease_${i}`,
         label: disease,
         type: 'disease',
-        color: '#EF4444',
+        color: ENTITY_STYLES.disease.color,
         size: 22,
         x: 400 + Math.cos(angle) * radius,
         y: 300 + Math.sin(angle) * radius,
@@ -209,26 +237,42 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
   useEffect(() => {
     if (graphData?.nodes && Array.isArray(graphData.nodes)) {
       setNodes(
-        graphData.nodes.map((node) => ({
+        graphData.nodes.map((node, index) => {
+          const normalizedType = normalizeEntityType(node.type);
+          const angle = (index / Math.max(graphData.nodes.length, 1)) * Math.PI * 2;
+          const radius = normalizedType === 'drug' ? 0 : normalizedType === 'protein' ? 120 : normalizedType === 'pathway' ? 220 : 290;
+          return {
           ...node,
+          type: normalizedType,
+          color: ENTITY_STYLES[normalizedType].color,
+          size: node.size || (normalizedType === 'drug' ? 25 : normalizedType === 'disease' ? 22 : 18),
+          x: typeof node.x === 'number' ? node.x : 400 + Math.cos(angle) * radius,
+          y: typeof node.y === 'number' ? node.y : 300 + Math.sin(angle) * radius,
+          vx: typeof node.vx === 'number' ? node.vx : 0,
+          vy: typeof node.vy === 'number' ? node.vy : 0,
+          connections: typeof node.connections === 'number' ? node.connections : 0,
           depth: typeof node.depth === 'number'
             ? node.depth
-            : node.type === 'drug'
+            : normalizedType === 'drug'
               ? 0.55
-              : node.type === 'pathway'
+              : normalizedType === 'pathway'
                 ? 0.7
-                : node.type === 'protein'
+                : normalizedType === 'protein'
                   ? 0.45
                   : 0.3
-        }))
+          };
+        })
       );
       setEdges(graphData.edges || []);
-    } else {
+    } else if (researchMode !== 'live') {
       const generated = generateEnhancedGraph(data || {});
       setNodes(generated.nodes);
       setEdges(generated.edges);
+    } else {
+      setNodes([]);
+      setEdges([]);
     }
-  }, [graphData, data, generateEnhancedGraph]);
+  }, [graphData, data, generateEnhancedGraph, researchMode]);
 
   // Physics simulation
   useEffect(() => {
@@ -323,7 +367,7 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [edges]);
+  }, [edges, nodes.length]);
 
   // Filter nodes based on type
   const filteredNodes = useMemo(() => {
@@ -335,7 +379,7 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
     
     if (searchTerm) {
       filtered = filtered.filter(n => 
-        n.label.toLowerCase().includes(searchTerm.toLowerCase())
+        String(n.label || n.id).toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     
@@ -377,14 +421,44 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
       projected.set(node.id, projectNode(node));
     });
 
-    // Subtle scanline effect to mimic the holographic display from the reference UI.
-    ctx.fillStyle = 'rgba(0, 220, 255, 0.03)';
+    const traceNodeShape = (node, projectedNode, radius) => {
+      ctx.beginPath();
+      if (node.type === 'disease') {
+        ctx.moveTo(projectedNode.x, projectedNode.y - radius);
+        ctx.lineTo(projectedNode.x + radius, projectedNode.y);
+        ctx.lineTo(projectedNode.x, projectedNode.y + radius);
+        ctx.lineTo(projectedNode.x - radius, projectedNode.y);
+        ctx.closePath();
+        return;
+      }
+      if (node.type === 'protein') {
+        for (let i = 0; i < 6; i += 1) {
+          const angle = Math.PI / 3 * i - Math.PI / 2;
+          const px = projectedNode.x + Math.cos(angle) * radius;
+          const py = projectedNode.y + Math.sin(angle) * radius;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        return;
+      }
+      if (node.type === 'pathway') {
+        ctx.rect(projectedNode.x - radius * 1.15, projectedNode.y - radius * 0.72, radius * 2.3, radius * 1.44);
+        return;
+      }
+      ctx.arc(projectedNode.x, projectedNode.y, radius, 0, 2 * Math.PI);
+    };
+
+    // Low-contrast scanlines keep the dense canvas legible without competing with nodes.
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.018)';
     for (let y = 0; y < height; y += 8) {
       ctx.fillRect(0, y, width, 1);
     }
 
-    // Draw edges
+    const visibleNodeIds = new Set(filteredNodes.map((node) => node.id));
+
+    // Draw only relationships whose endpoints are currently visible.
     edges.forEach(edge => {
+      if (!visibleNodeIds.has(edge.source) || !visibleNodeIds.has(edge.target)) return;
       const source = nodes.find(n => n.id === edge.source);
       const target = nodes.find(n => n.id === edge.target);
       if (source && target) {
@@ -395,28 +469,32 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
         const isHighlighted = highlightedPath.includes(edge.source) && highlightedPath.includes(edge.target);
         const avgDepth = (sourceProjected.depth + targetProjected.depth) / 2;
         const baseAlpha = 0.18 + avgDepth * 0.38;
+        const semantic = relationStyle(edge.type);
+        const isSelectedRelationship = selectedNode && (edge.source === selectedNode.id || edge.target === selectedNode.id);
         
         ctx.beginPath();
         ctx.moveTo(sourceProjected.x, sourceProjected.y);
         ctx.lineTo(targetProjected.x, targetProjected.y);
         ctx.strokeStyle = isHighlighted
-          ? 'rgba(99, 102, 241, 0.95)'
-          : `rgba(56, 189, 248, ${Math.min(0.8, baseAlpha * (edge.strength || 0.6))})`;
+          ? semantic.color
+          : `${semantic.color}${Math.round(Math.min(0.78, baseAlpha * (edge.strength || 0.6)) * 255).toString(16).padStart(2, '0')}`;
         ctx.lineWidth = isHighlighted ? 3.2 : (1.1 + avgDepth) * (edge.weight || 1);
+        ctx.setLineDash(String(edge.type || '').toLowerCase().includes('associat') ? [6, 5] : []);
         if (isHighlighted) {
-          ctx.shadowColor = 'rgba(129, 140, 248, 0.7)';
-          ctx.shadowBlur = 14;
+          ctx.shadowColor = semantic.color;
+          ctx.shadowBlur = 10;
         } else {
           ctx.shadowBlur = 0;
         }
         ctx.stroke();
+        ctx.setLineDash([]);
         ctx.shadowBlur = 0;
         
-        // Draw arrow
-        if (isHighlighted) {
+        // Directional arrowheads communicate relationship flow.
+        if (isHighlighted || isSelectedRelationship) {
           const angle = Math.atan2(targetProjected.y - sourceProjected.y, targetProjected.x - sourceProjected.x);
-          const arrowSize = 8;
-          ctx.fillStyle = '#818CF8';
+          const arrowSize = isHighlighted ? 8 : 6;
+          ctx.fillStyle = semantic.color;
           ctx.beginPath();
           ctx.moveTo(
             targetProjected.x - arrowSize * Math.cos(angle - Math.PI / 6),
@@ -428,6 +506,20 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
             targetProjected.y - arrowSize * Math.sin(angle + Math.PI / 6)
           );
           ctx.fill();
+        }
+
+        if (isSelectedRelationship && edge.type) {
+          const midX = (sourceProjected.x + targetProjected.x) / 2;
+          const midY = (sourceProjected.y + targetProjected.y) / 2;
+          const label = String(edge.type).replace(/_/g, ' ');
+          ctx.font = '500 10px Inter';
+          const labelWidth = ctx.measureText(label).width;
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+          ctx.fillRect(midX - labelWidth / 2 - 4, midY - 8, labelWidth + 8, 15);
+          ctx.fillStyle = '#E2E8F0';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(label, midX, midY - 0.5);
         }
       }
     });
@@ -458,9 +550,8 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
       ctx.fillStyle = `rgba(34, 211, 238, ${0.035 + projectedNode.depth * 0.055})`;
       ctx.fill();
 
-      // Node circle
-      ctx.beginPath();
-      ctx.arc(projectedNode.x, projectedNode.y, radius, 0, 2 * Math.PI);
+      // Shape and color both encode biomedical entity class.
+      traceNodeShape(node, projectedNode, radius);
       
       // Gradient fill
       const gradient = ctx.createRadialGradient(projectedNode.x - radius / 3, projectedNode.y - radius / 3, 0, projectedNode.x, projectedNode.y, radius);
@@ -748,39 +839,60 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
   };
 
   const nodeTypes = [
-    { id: 'all', label: 'All Nodes', count: nodes.length },
+    { id: 'all', label: 'All entities', count: nodes.length },
     { id: 'drug', label: 'Drugs', count: nodes.filter(n => n.type === 'drug').length },
-    { id: 'protein', label: 'Proteins', count: nodes.filter(n => n.type === 'protein').length },
+    { id: 'protein', label: 'Genes / targets', count: nodes.filter(n => n.type === 'protein').length },
     { id: 'pathway', label: 'Pathways', count: nodes.filter(n => n.type === 'pathway').length },
-    { id: 'disease', label: 'Diseases', count: nodes.filter(n => n.type === 'disease').length }
+    { id: 'disease', label: 'Diseases', count: nodes.filter(n => n.type === 'disease').length },
+    ...(nodes.some((node) => node.type === 'other') ? [{ id: 'other', label: 'Other', count: nodes.filter((node) => node.type === 'other').length }] : [])
   ];
 
+  const relationshipTypes = Array.from(new Set(edges.map((edge) => edge.type).filter(Boolean)));
+  const selectedRelationships = selectedNode
+    ? edges.filter((edge) => edge.source === selectedNode.id || edge.target === selectedNode.id)
+    : [];
+  const searchMatches = searchTerm.trim() ? filteredNodes.slice(0, 8) : [];
+
+  const selectEntity = (node) => {
+    if (!node) return;
+    setSelectedNode(node);
+    const connected = [node.id];
+    edges.forEach((edge) => {
+      if (edge.source === node.id) connected.push(edge.target);
+      if (edge.target === node.id) connected.push(edge.source);
+    });
+    setHighlightedPath(connected);
+  };
+
   return (
-    <div className={`rounded-3xl overflow-hidden border border-cyan-300/30 bg-[#040b14]/95 shadow-[0_18px_70px_rgba(0,0,0,0.45)] ${isFullscreen ? 'fixed inset-4 z-50' : ''}`}>
+    <div className={`research-graph-shell ${isFullscreen ? 'fixed inset-4 z-50' : ''}`}>
       {/* Header */}
-      <div className="p-4 border-b border-cyan-300/20 bg-gradient-to-r from-[#041423] via-[#07263a] to-[#03131f]">
-        <div className="flex items-center justify-between mb-3">
+      <div className="research-graph-toolbar">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center shadow-[0_0_18px_rgba(56,189,248,0.55)]">
-              <Network className="w-5 h-5 text-white" />
+            <div className="research-graph-brand-icon">
+              <Network className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-cyan-100">Interactive Knowledge Graph</h3>
-              <p className="text-xs text-cyan-100/65">Drug-Target-Pathway-Disease relationships</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Relationship explorer</p>
+              <h3 className="text-lg font-semibold text-slate-50">Biomedical knowledge graph</h3>
+              <p className="text-xs text-slate-400">Drug → target → pathway → disease evidence network</p>
             </div>
           </div>
           
-          <div className="flex items-center space-x-2">
-            <div className="hidden md:flex items-center bg-slate-900/70 border border-cyan-300/20 rounded-xl p-1 mr-2">
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <div className="mr-1 hidden items-center rounded-lg border border-slate-700 bg-slate-900 p-1 md:flex" aria-label="Graph view mode">
               <button
                 onClick={() => setViewMode('lab')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${viewMode === 'lab' ? 'bg-cyan-500/30 text-cyan-50' : 'text-cyan-100/70 hover:bg-cyan-500/20'}`}
+                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${viewMode === 'lab' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}
+                aria-pressed={viewMode === 'lab'}
               >
                 Lab 3D
               </button>
               <button
                 onClick={() => setViewMode('cinematic')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${viewMode === 'cinematic' ? 'bg-cyan-500/30 text-cyan-50' : 'text-cyan-100/70 hover:bg-cyan-500/20'}`}
+                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${viewMode === 'cinematic' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}
+                aria-pressed={viewMode === 'cinematic'}
               >
                 Cinematic
               </button>
@@ -789,62 +901,71 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
             {/* Zoom Controls */}
             <button
               onClick={() => setZoom(z => Math.max(0.5, z - 0.2))}
-              className="p-2 hover:bg-cyan-500/20 rounded-lg transition-colors"
+              className="research-graph-icon-button"
               title="Zoom Out"
+              aria-label="Zoom out"
             >
-              <ZoomOut className="w-4 h-4 text-cyan-100/80" />
+              <ZoomOut className="h-4 w-4" />
             </button>
-            <span className="text-xs text-cyan-100/70 w-12 text-center">{Math.round(zoom * 100)}%</span>
+            <span className="w-11 text-center font-mono text-[11px] text-slate-400">{Math.round(zoom * 100)}%</span>
             <button
               onClick={() => setZoom(z => Math.min(2, z + 0.2))}
-              className="p-2 hover:bg-cyan-500/20 rounded-lg transition-colors"
+              className="research-graph-icon-button"
               title="Zoom In"
+              aria-label="Zoom in"
             >
-              <ZoomIn className="w-4 h-4 text-cyan-100/80" />
+              <ZoomIn className="h-4 w-4" />
             </button>
             
             {/* Reset View */}
             <button
               onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
-              className="p-2 hover:bg-cyan-500/20 rounded-lg transition-colors"
+              className="research-graph-icon-button"
               title="Reset View"
+              aria-label="Reset graph view"
             >
-              <RefreshCw className="w-4 h-4 text-cyan-100/80" />
+              <RefreshCw className="h-4 w-4" />
             </button>
 
             <button
               onClick={() => setIsOrbiting((v) => !v)}
-              className={`p-2 rounded-lg transition-colors ${isOrbiting ? 'bg-cyan-500/25' : 'hover:bg-cyan-500/20'}`}
+              className={`research-graph-icon-button ${isOrbiting ? 'research-graph-icon-button--active' : ''}`}
               title={isOrbiting ? 'Pause Orbit' : 'Start Orbit'}
+              aria-label={isOrbiting ? 'Pause orbit' : 'Start orbit'}
+              aria-pressed={isOrbiting}
             >
-              {isOrbiting ? <Pause className="w-4 h-4 text-cyan-100/80" /> : <Play className="w-4 h-4 text-cyan-100/80" />}
+              {isOrbiting ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </button>
 
             <button
               onClick={focusSelectedNode}
-              className="p-2 hover:bg-cyan-500/20 rounded-lg transition-colors"
+              className="research-graph-icon-button"
               title="Focus Selected Node"
               disabled={!selectedNode}
+              aria-label="Focus selected node"
             >
-              <Focus className={`w-4 h-4 ${selectedNode ? 'text-cyan-100/80' : 'text-cyan-100/35'}`} />
+              <Focus className="h-4 w-4" />
             </button>
             
             {/* Toggle Labels */}
             <button
               onClick={() => setShowLabels(!showLabels)}
-              className="p-2 hover:bg-cyan-500/20 rounded-lg transition-colors"
+              className="research-graph-icon-button"
               title={showLabels ? 'Hide Labels' : 'Show Labels'}
+              aria-label={showLabels ? 'Hide node labels' : 'Show node labels'}
+              aria-pressed={showLabels}
             >
-              {showLabels ? <Eye className="w-4 h-4 text-cyan-100/80" /> : <EyeOff className="w-4 h-4 text-cyan-100/80" />}
+              {showLabels ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
             </button>
             
             {/* Fullscreen */}
             <button
               onClick={() => setIsFullscreen(!isFullscreen)}
-              className="p-2 hover:bg-cyan-500/20 rounded-lg transition-colors"
+              className="research-graph-icon-button"
               title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+              aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
             >
-              {isFullscreen ? <X className="w-4 h-4 text-cyan-100/80" /> : <Maximize2 className="w-4 h-4 text-cyan-100/80" />}
+              {isFullscreen ? <X className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>
             
             {/* Export */}
@@ -856,40 +977,47 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
                 link.href = canvas.toDataURL();
                 link.click();
               }}
-              className="p-2 hover:bg-cyan-500/20 rounded-lg transition-colors"
+              className="research-graph-icon-button"
               title="Export as Image"
+              aria-label="Export graph as image"
             >
-              <Download className="w-4 h-4 text-cyan-100/80" />
+              <Download className="h-4 w-4" />
             </button>
           </div>
         </div>
         
         {/* Filters */}
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
           {/* Search */}
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+          <div className="relative w-full lg:max-w-xs">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <input
               type="text"
               placeholder="Search nodes..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-3 py-1.5 border border-cyan-300/30 rounded-lg text-sm bg-slate-900/80 text-cyan-100 placeholder-cyan-100/40 focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400"
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 py-2 pl-10 pr-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+              aria-label="Search graph entities"
+              role="combobox"
+              aria-expanded={searchMatches.length > 0}
+              aria-controls="graph-search-results"
             />
           </div>
           
           {/* Type Filter */}
-          <div className="flex items-center space-x-1">
+          <div className="flex flex-1 items-center gap-1 overflow-x-auto pb-1 lg:pb-0">
             {nodeTypes.map(type => (
               <button
                 key={type.id}
                 onClick={() => setFilterType(type.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 py-2 text-xs font-semibold transition-colors ${
                   filterType === type.id
-                    ? 'bg-cyan-400/25 text-cyan-50 border border-cyan-300/40'
-                    : 'bg-slate-900/70 text-cyan-100/75 border border-cyan-300/20 hover:bg-cyan-500/15'
+                    ? 'border-slate-500 bg-slate-700 text-white'
+                    : 'border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600 hover:text-white'
                 }`}
+                aria-pressed={filterType === type.id}
               >
+                {type.id !== 'all' && <span className={`research-graph-filter-shape research-graph-filter-shape--${type.id}`} />}
                 {type.label} ({type.count})
               </button>
             ))}
@@ -909,7 +1037,8 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
                 return next;
               });
             }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${isPathfinderMode ? 'bg-cyan-500/30 border-cyan-300/45 text-cyan-50' : 'bg-slate-900/70 border-cyan-300/20 text-cyan-100/75 hover:bg-cyan-500/15'}`}
+            className={`rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${isPathfinderMode ? 'border-violet-400/60 bg-violet-500/20 text-violet-100' : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-600'}`}
+            aria-pressed={isPathfinderMode}
           >
             <span className="inline-flex items-center gap-1">
               <Route className="w-3.5 h-3.5" />
@@ -918,18 +1047,44 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
           </button>
         </div>
 
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+          <span>Showing <strong className="text-slate-300">{filteredNodes.length}</strong> of {nodes.length} entities</span>
+          <span className="inline-flex items-center gap-1"><Keyboard className="h-3.5 w-3.5" />Search results can be selected with the keyboard</span>
+        </div>
+
+        {searchTerm.trim() && (
+          <div id="graph-search-results" role="listbox" aria-label="Matching graph entities" className="research-graph-search-results">
+            {searchMatches.length > 0 ? searchMatches.map((node) => {
+              const Icon = getNodeIcon(node.type);
+              return (
+                <button
+                  key={`search-${node.id}`}
+                  type="button"
+                  role="option"
+                  aria-selected={selectedNode?.id === node.id}
+                  onClick={() => selectEntity(node)}
+                  className="research-graph-search-result"
+                >
+                  <span className="research-graph-search-result__icon" style={{ color: ENTITY_STYLES[node.type]?.light, background: `${ENTITY_STYLES[node.type]?.color}22` }}><Icon className="h-3.5 w-3.5" /></span>
+                  <span className="min-w-0"><span className="block truncate font-semibold text-slate-200">{node.label || node.id}</span><span className="block truncate text-[10px] text-slate-500">{ENTITY_STYLES[node.type]?.label || 'Other entity'} · {node.id}</span></span>
+                </button>
+              );
+            }) : <p className="px-3 py-2 text-xs text-slate-500">No entities match “{searchTerm}” in this filter.</p>}
+          </div>
+        )}
+
         {pathStatus && (
-          <div className="mt-2 text-xs text-cyan-100/75 bg-cyan-500/10 border border-cyan-300/20 rounded-lg px-3 py-2">
+          <div className="mt-3 rounded-lg border border-violet-400/30 bg-violet-500/10 px-3 py-2 text-xs text-violet-100" role="status">
             {pathStatus}
           </div>
         )}
       </div>
       
-      <div className="flex">
+      <div className="flex flex-col xl:flex-row">
         {/* Graph Canvas */}
-        <div className={`flex-1 ${isFullscreen ? 'h-[calc(100vh-16rem)]' : 'h-[500px]'} bg-gradient-to-br from-[#01070f] via-[#041826] to-[#08304a] relative`}>
-          <div className={`absolute inset-0 pointer-events-none ${viewMode === 'cinematic' ? 'bg-[radial-gradient(circle_at_20%_18%,rgba(56,189,248,0.26),transparent_34%),radial-gradient(circle_at_80%_84%,rgba(45,212,191,0.22),transparent_36%)]' : 'bg-[radial-gradient(circle_at_20%_18%,rgba(56,189,248,0.18),transparent_36%),radial-gradient(circle_at_80%_84%,rgba(45,212,191,0.13),transparent_38%)]'}`} />
-          <div className="absolute inset-0 pointer-events-none opacity-30" style={{ backgroundImage: 'linear-gradient(rgba(34,211,238,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.12) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
+        <div className={`relative flex-1 overflow-hidden ${isFullscreen ? 'h-[calc(100vh-16rem)]' : 'h-[560px]'} bg-[#07100f]`}>
+          <div className={`pointer-events-none absolute inset-0 ${viewMode === 'cinematic' ? 'bg-[radial-gradient(circle_at_20%_18%,rgba(139,92,246,0.16),transparent_34%),radial-gradient(circle_at_80%_84%,rgba(20,184,166,0.15),transparent_36%)]' : 'bg-[radial-gradient(circle_at_20%_18%,rgba(139,92,246,0.09),transparent_36%),radial-gradient(circle_at_80%_84%,rgba(20,184,166,0.08),transparent_38%)]'}`} />
+          <div className="pointer-events-none absolute inset-0 opacity-25" style={{ backgroundImage: 'linear-gradient(rgba(148,163,184,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.08) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
           {viewMode === 'cinematic' && (
             <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, rgba(125,211,252,0.22) 1px, transparent 1px)', backgroundSize: '28px 28px', opacity: 0.12 }} />
           )}
@@ -943,44 +1098,37 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             onWheel={handleWheelZoom}
-            className="w-full h-full cursor-grab active:cursor-grabbing"
+            className="h-full w-full cursor-grab active:cursor-grabbing"
+            aria-label="Interactive biomedical knowledge graph. Click a node to inspect its relationships."
           />
           
           {/* Legend */}
-          <div className="absolute bottom-4 left-4 bg-slate-900/88 backdrop-blur rounded-xl p-3 shadow-lg border border-cyan-300/30">
-            <div className="text-xs font-semibold text-cyan-100/90 mb-2 flex items-center">
+          <div className="research-graph-overlay bottom-4 left-4 max-w-[calc(100%-2rem)]">
+            <div className="mb-2 flex items-center text-xs font-semibold text-slate-200">
               <Layers className="w-3 h-3 mr-1" />
-              Node Types
+              Entity legend
             </div>
-            <div className="space-y-1.5">
-              {[
-                { type: 'drug', color: '#8B5CF6', label: 'Drug' },
-                { type: 'protein', color: '#10B981', label: 'Protein Target' },
-                { type: 'pathway', color: '#F59E0B', label: 'Pathway' },
-                { type: 'disease', color: '#EF4444', label: 'Disease' },
-              ].map(item => (
-                <div key={item.type} className="flex items-center space-x-2">
-                  <div 
-                    className="w-3 h-3 rounded-full shadow-sm" 
-                    style={{ backgroundColor: item.color }}
-                  />
-                  <span className="text-xs text-cyan-100/80">{item.label}</span>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+              {Object.entries(ENTITY_STYLES).filter(([type]) => type !== 'other' || nodes.some((node) => node.type === 'other')).map(([type, item]) => (
+                <div key={type} className="flex items-center space-x-2">
+                  <span className={`research-graph-legend-shape research-graph-legend-shape--${type}`} style={{ '--legend-color': item.color }} />
+                  <span className="text-[11px] text-slate-300">{item.label}</span>
                 </div>
               ))}
             </div>
+            {relationshipTypes.length > 0 && <div className="mt-3 border-t border-slate-700 pt-2"><div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">Relationships</div><div className="flex max-w-sm flex-wrap gap-x-3 gap-y-1">{relationshipTypes.map((type) => <span key={type} className="inline-flex items-center gap-1.5 text-[10px] text-slate-400"><span className="h-px w-4" style={{ background: relationStyle(type).color }} />{String(type).replace(/_/g, ' ')}</span>)}</div></div>}
           </div>
           
           {/* Instructions */}
-          <div className="absolute top-4 left-4 bg-slate-900/85 backdrop-blur rounded-lg p-2 shadow-sm border border-cyan-300/25">
-            <div className="text-xs text-cyan-100/70 space-y-1">
-              <div>Click + drag to pan</div>
-              <div>Mouse wheel to zoom</div>
-              <div>Click node for insight panel</div>
+          <div className="research-graph-overlay left-4 top-4 hidden sm:block">
+            <div className="space-y-1 text-[11px] text-slate-400">
+              <div><strong className="text-slate-200">Drag</strong> to pan · <strong className="text-slate-200">Scroll</strong> to zoom</div>
+              <div><strong className="text-slate-200">Select</strong> a node to inspect evidence links</div>
             </div>
           </div>
 
-          <div className="absolute bottom-4 right-4 bg-slate-950/88 backdrop-blur rounded-xl p-2.5 shadow-lg border border-cyan-300/25">
-            <div className="text-[10px] text-cyan-100/70 mb-1.5 flex items-center gap-1">
+          <div className="research-graph-overlay bottom-4 right-4 hidden p-2.5 sm:block">
+            <div className="mb-1.5 flex items-center gap-1 text-[10px] text-slate-400">
               <Sparkles className="w-3 h-3" />
               Minimap
             </div>
@@ -1014,19 +1162,20 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
         </div>
         
         {/* Node Details Panel */}
-        <div className={`${isFullscreen ? 'w-96' : 'w-80'} border-l border-cyan-300/20 bg-[#020d18]/92 overflow-y-auto`}>
+        <aside className={`${isFullscreen ? 'xl:w-96' : 'xl:w-80'} min-h-64 w-full overflow-y-auto border-t border-slate-800 bg-[#0b1413] xl:border-l xl:border-t-0`} aria-label="Selected entity details">
           {selectedNode ? (
-            <div className="p-4">
+            <div className="p-5">
               <div className="flex items-center justify-between mb-4">
-                <h4 className="font-semibold text-cyan-100">Node Details</h4>
+                <div><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Selected entity</p><h4 className="font-semibold text-slate-100">Details and relationships</h4></div>
                 <button
                   onClick={() => {
                     setSelectedNode(null);
                     setHighlightedPath([]);
                   }}
-                  className="p-1 hover:bg-cyan-500/20 rounded"
+                  className="research-graph-icon-button"
+                  aria-label="Clear selected node"
                 >
-                  <X className="w-4 h-4 text-cyan-100/70" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
               
@@ -1034,7 +1183,7 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
               <div className="space-y-4">
                 <div className="flex items-center space-x-3">
                   <div 
-                    className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg"
+                    className="flex h-12 w-12 items-center justify-center rounded-xl shadow-lg"
                     style={{ backgroundColor: selectedNode.color }}
                   >
                     {(() => {
@@ -1043,32 +1192,32 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
                     })()}
                   </div>
                   <div>
-                    <div className="font-semibold text-cyan-100">{selectedNode.label}</div>
-                    <div className="text-sm text-cyan-100/60 capitalize">{selectedNode.type}</div>
+                    <div className="font-semibold text-slate-50">{selectedNode.label}</div>
+                    <div className="text-sm text-slate-400">{ENTITY_STYLES[selectedNode.type]?.label || selectedNode.type}</div>
                   </div>
                 </div>
                 
                 {/* Metrics */}
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-slate-900/80 border border-cyan-300/20 rounded-lg p-3">
-                    <div className="text-xs text-cyan-100/60">Connections</div>
-                    <div className="text-xl font-bold text-cyan-100">{selectedNode.connections}</div>
+                  <div className="research-graph-metric">
+                    <div className="text-xs text-slate-500">Relationships</div>
+                    <div className="text-xl font-bold text-slate-100">{selectedRelationships.length}</div>
                   </div>
-                  <div className="bg-slate-900/80 border border-cyan-300/20 rounded-lg p-3">
-                    <div className="text-xs text-cyan-100/60">Size</div>
-                    <div className="text-xl font-bold text-cyan-100">{selectedNode.size || 18}</div>
+                  <div className="research-graph-metric">
+                    <div className="text-xs text-slate-500">Entity ID</div>
+                    <div className="mt-1 truncate font-mono text-xs font-semibold text-slate-200" title={selectedNode.id}>{selectedNode.id}</div>
                   </div>
                 </div>
                 
                 {/* Metadata */}
                 {selectedNode.metadata && (
-                  <div className="bg-slate-900/80 border border-cyan-300/20 rounded-lg p-3">
-                    <div className="text-xs font-semibold text-cyan-100/85 mb-2">Metadata</div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-3">
+                    <div className="mb-2 text-xs font-semibold text-slate-200">Entity metadata</div>
                     <div className="space-y-1.5">
                       {Object.entries(selectedNode.metadata).map(([key, value]) => (
-                        <div key={key} className="grid grid-cols-[1fr_auto] gap-3 items-start text-sm border-b border-cyan-300/10 pb-1.5">
-                          <span className="text-cyan-100/60 capitalize">{key.replace(/_/g, ' ')}</span>
-                          <span className="font-medium text-cyan-50 text-right">{value}</span>
+                        <div key={key} className="grid grid-cols-[1fr_auto] items-start gap-3 border-b border-slate-800 pb-1.5 text-sm last:border-0">
+                          <span className="capitalize text-slate-500">{key.replace(/_/g, ' ')}</span>
+                          <span className="max-w-40 break-words text-right font-medium text-slate-200">{value && typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
                         </div>
                       ))}
                     </div>
@@ -1077,21 +1226,21 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
                 
                 {/* Connected Nodes */}
                 <div>
-                  <div className="text-sm font-semibold text-cyan-100/90 mb-2">Connected Nodes</div>
+                  <div className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-200"><span>Evidence relationships</span><span className="font-mono text-[10px] text-slate-500">{selectedRelationships.length}</span></div>
                   <div className="space-y-1 max-h-40 overflow-y-auto">
-                    {edges
-                      .filter(e => e.source === selectedNode.id || e.target === selectedNode.id)
-                      .map((edge, i) => {
-                        const connectedId = edge.source === selectedNode.id ? edge.target : edge.source;
+                    {selectedRelationships.map((edge, i) => {
+                        const isOutgoing = edge.source === selectedNode.id;
+                        const connectedId = isOutgoing ? edge.target : edge.source;
                         const connectedNode = nodes.find(n => n.id === connectedId);
                         return (
                           <button
                             key={i}
-                            onClick={() => setSelectedNode(connectedNode)}
-                            className="w-full text-left text-xs bg-slate-900/70 border border-cyan-300/20 hover:bg-cyan-500/15 rounded px-2 py-1.5 flex justify-between items-center transition-colors"
+                            onClick={() => selectEntity(connectedNode)}
+                            className="w-full rounded-lg border border-slate-800 bg-slate-900/70 px-2.5 py-2 text-left text-xs transition-colors hover:border-slate-700 hover:bg-slate-800"
                           >
-                            <span className="font-medium text-cyan-100/90">{connectedNode?.label || connectedId}</span>
-                            <span className="text-cyan-100/45 text-xs">{edge.type}</span>
+                            <span className="flex items-center justify-between gap-2"><span className="flex min-w-0 items-center gap-2"><span className="h-2 w-2 shrink-0 rounded-full" style={{ background: ENTITY_STYLES[connectedNode?.type || 'other'].color }} /><span className="truncate font-medium text-slate-200">{connectedNode?.label || connectedId}</span></span><span className="text-slate-500">{isOutgoing ? <ArrowRight className="h-3.5 w-3.5" /> : <ArrowLeft className="h-3.5 w-3.5" />}</span></span>
+                            <span className="mt-1.5 flex items-center justify-between gap-2 border-t border-slate-800 pt-1.5"><span className="text-[10px] text-slate-500">{isOutgoing ? 'Outgoing' : 'Incoming'} evidence</span><span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px]" style={{ color: relationStyle(edge.type).color }}>{String(edge.type || 'related').replace(/_/g, ' ')}</span>{edge.strength !== undefined && <span className="font-mono text-[10px] text-slate-500">strength {Number(edge.strength).toFixed(2)}</span>}</span>
+                            {edge.provenance?.length > 0 && <span className="mt-1 block truncate text-[10px] text-slate-500" title={edge.provenance.map((item) => `${item.source} ${item.sourceRecordId || ''}`).join('; ')}>Source: {edge.provenance.map((item) => item.source).filter(Boolean).join(', ')}{edge.provenance[0]?.retrievedAt ? ` · retrieved ${edge.provenance[0].retrievedAt}` : ''}</span>}
                           </button>
                         );
                       })}
@@ -1100,37 +1249,41 @@ const KnowledgeGraphEnhanced = ({ data, graphData, molecule }) => {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8 text-cyan-100/60">
+            <div className="flex h-full flex-col items-center justify-center p-8 text-center text-slate-500">
               <Info className="w-12 h-12 mb-3 opacity-30" />
-              <p className="text-sm font-medium">Click a node to view details</p>
-              <p className="text-xs mt-1">Connections will be highlighted</p>
+              <p className="text-sm font-medium text-slate-300">Select an entity to inspect it</p>
+              <p className="mt-1 max-w-52 text-xs leading-5">Its metadata and evidence relationships will appear here.</p>
             </div>
           )}
-        </div>
+        </aside>
       </div>
       
       {/* Stats Footer */}
-      <div className="p-4 border-t border-cyan-300/20 bg-slate-950/75">
-        <div className="grid grid-cols-5 gap-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-cyan-200">{nodes.length}</div>
-            <div className="text-xs text-cyan-100/60">Total Nodes</div>
+      <div className="border-t border-slate-800 bg-[#0b1413] p-4">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+          <div className="research-graph-stat">
+            <div className="text-xl font-bold text-slate-100">{nodes.length}</div>
+            <div className="text-[11px] text-slate-500">Entities</div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-cyan-200">{edges.length}</div>
-            <div className="text-xs text-cyan-100/60">Connections</div>
+          <div className="research-graph-stat">
+            <div className="text-xl font-bold text-slate-100">{edges.length}</div>
+            <div className="text-[11px] text-slate-500">Relationships</div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-cyan-200">{nodes.filter(n => n.type === 'pathway').length}</div>
-            <div className="text-xs text-cyan-100/60">Pathways</div>
+          <div className="research-graph-stat">
+            <div className="text-xl font-bold" style={{ color: ENTITY_STYLES.drug.light }}>{nodes.filter(n => n.type === 'drug').length}</div>
+            <div className="text-[11px] text-slate-500">Drugs</div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-cyan-200">{nodes.filter(n => n.type === 'protein').length}</div>
-            <div className="text-xs text-cyan-100/60">Targets</div>
+          <div className="research-graph-stat">
+            <div className="text-xl font-bold" style={{ color: ENTITY_STYLES.protein.light }}>{nodes.filter(n => n.type === 'protein').length}</div>
+            <div className="text-[11px] text-slate-500">Genes / targets</div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-cyan-200">{nodes.filter(n => n.type === 'disease').length}</div>
-            <div className="text-xs text-cyan-100/60">Diseases</div>
+          <div className="research-graph-stat">
+            <div className="text-xl font-bold" style={{ color: ENTITY_STYLES.pathway.light }}>{nodes.filter(n => n.type === 'pathway').length}</div>
+            <div className="text-[11px] text-slate-500">Pathways</div>
+          </div>
+          <div className="research-graph-stat">
+            <div className="text-xl font-bold" style={{ color: ENTITY_STYLES.disease.light }}>{nodes.filter(n => n.type === 'disease').length}</div>
+            <div className="text-[11px] text-slate-500">Diseases</div>
           </div>
         </div>
       </div>

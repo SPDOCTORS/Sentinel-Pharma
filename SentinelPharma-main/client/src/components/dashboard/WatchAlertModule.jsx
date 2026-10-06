@@ -10,7 +10,7 @@
  * - Email notification settings
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   Bell, 
   Plus, 
@@ -109,8 +109,8 @@ const WatchAlertModule = () => {
       lastChecked: new Date().toISOString(),
       status: 'active',
       alertTypes: Object.entries(selectedAlertTypes)
-        .filter(([_, enabled]) => enabled)
-        .map(([type, _]) => type),
+        .filter(([, enabled]) => enabled)
+        .map(([type]) => type),
       recentAlerts: 0
     };
 

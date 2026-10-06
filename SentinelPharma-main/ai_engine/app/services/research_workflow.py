@@ -33,6 +33,8 @@ async def analyze_live_research(
     disease: str | None,
     request_id: str,
     gnn_service: Any,
+    v5_shadow_service: Any | None = None,
+    v5_evidence_graph_service: Any | None = None,
 ) -> dict[str, Any]:
     """Keep each source and the prediction separate; a failed source never gains substitutes."""
     query = f"{molecule} {disease}" if disease else molecule
@@ -77,14 +79,71 @@ async def analyze_live_research(
                 "GNN_UNAVAILABLE", "No compatible model ranking is available for this disease."
             )
             executed.append({"name": "GNNRepurposingService", "status": "failed"})
+
+        if v5_shadow_service is not None:
+            try:
+                shadow = await run_in_threadpool(v5_shadow_service.predict, disease, 5)
+                shadow_prediction = {
+                    "success": True,
+                    "evidenceContractVersion": EVIDENCE_CONTRACT_VERSION,
+                    "dataMode": "MODEL_PREDICTION",
+                    "verificationStatus": "MODEL_INFERENCE",
+                    "generatedAt": datetime.now(timezone.utc).isoformat(),
+                    "shadow": True,
+                    "primary": False,
+                    **shadow,
+                }
+                executed.append({"name": "FrozenV5ShadowService", "status": "completed"})
+            except Exception:
+                shadow_prediction = {
+                    **unavailable_response(
+                        "V5_SHADOW_UNAVAILABLE",
+                        "The frozen V5 shadow ranking is unavailable for this disease.",
+                    ),
+                    "shadow": True,
+                    "primary": False,
+                }
+                executed.append({"name": "FrozenV5ShadowService", "status": "failed"})
+        else:
+            shadow_prediction = {
+                **unavailable_response("V5_SHADOW_NOT_CONFIGURED", "The frozen V5 shadow ranker is not configured."),
+                "shadow": True,
+                "primary": False,
+            }
     else:
         model_prediction = unavailable_response(
             "DISEASE_NOT_PROVIDED", "Provide a disease to request model candidate ranking."
         )
         executed.append({"name": "GNNRepurposingService", "status": "skipped"})
+        shadow_prediction = {
+            **unavailable_response("DISEASE_NOT_PROVIDED", "Provide a disease to request V5 shadow ranking."),
+            "shadow": True,
+            "primary": False,
+        }
+        executed.append({"name": "FrozenV5ShadowService", "status": "skipped"})
 
     available = bool(citations)
     data_mode = "SOURCE_BACKED" if available else "UNAVAILABLE"
+    if v5_evidence_graph_service is None:
+        knowledge_graph = {
+            **unavailable_response("V5_GRAPH_NOT_CONFIGURED", "The frozen V5 evidence graph is not configured."),
+            "nodes": [],
+            "edges": [],
+        }
+    else:
+        try:
+            knowledge_graph = await run_in_threadpool(
+                v5_evidence_graph_service.subgraph_or_unavailable, molecule, disease
+            )
+        except Exception:
+            knowledge_graph = {
+                **unavailable_response(
+                    "V5_GRAPH_EVIDENCE_UNAVAILABLE",
+                    "No exact, source-backed V5 drug-target-disease neighborhood is available for this request.",
+                ),
+                "nodes": [],
+                "edges": [],
+            }
     response = {
         "request_id": request_id,
         "molecule": molecule,
@@ -98,6 +157,8 @@ async def analyze_live_research(
         "sourceResults": sources,
         "citations": citations,
         "modelPrediction": model_prediction,
+        "shadowModelPrediction": shadow_prediction,
+        "knowledge_graph": knowledge_graph,
         "agents_executed": executed,
         "summary": {
             "overallAssessment": (

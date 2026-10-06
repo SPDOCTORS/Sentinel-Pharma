@@ -74,14 +74,11 @@ export const useResearch = () => {
   const ctx = useContext(ResearchContext);
   if (!ctx) {
     // Helpful dev-time message to quickly find missing provider issues
-    /* eslint-disable no-console */
     console.error(
       '[ResearchContext] missing provider: wrap your app with <ResearchProvider>.\n' +
       'Example:\n  <ResearchProvider>\n    <App />\n  </ResearchProvider>\n' +
       'Falling back to safe defaults to avoid runtime crash.'
     );
-    /* eslint-enable no-console */
-
     // Safe no-op fallbacks (keeps UI stable and avoids exceptions)
     const noop = () => {};
     return {

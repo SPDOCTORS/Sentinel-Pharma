@@ -9,7 +9,6 @@ import React, { useState, useMemo } from 'react';
 import { 
   SYNTHETIC_QUERIES, 
   QUERY_CATEGORIES, 
-  getGroupedQueryOptions,
   getQueryById 
 } from '../data/syntheticQueries';
 
@@ -27,9 +26,6 @@ const StrategySelector = ({
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState(null);
-
-  // Get grouped options
-  const groupedOptions = useMemo(() => getGroupedQueryOptions(), []);
 
   // Filter queries based on search
   const filteredQueries = useMemo(() => {

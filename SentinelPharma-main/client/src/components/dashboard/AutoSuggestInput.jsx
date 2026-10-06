@@ -10,7 +10,7 @@
  * - Keyboard navigation
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, Loader2, Pill, Dna, FlaskConical } from 'lucide-react';
 import { debounce } from '../../utils/debounce';
 
@@ -81,8 +81,8 @@ const AutoSuggestInput = ({
   }, []);
 
   // Search function with debounce
-  const searchMolecules = useCallback(
-    debounce((query) => {
+  const searchMolecules = useMemo(
+    () => debounce((query) => {
       if (query.length < 2) {
         setSuggestions([]);
         setIsLoading(false);
@@ -244,7 +244,7 @@ const AutoSuggestInput = ({
     <div className="relative flex-1">
       {/* Input Field */}
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-200/70" />
+        <Search className="absolute left-4 top-[calc(50%+0.2rem)] -translate-y-1/2 w-5 h-5 text-[var(--research-muted)]" />
         <input
           ref={inputRef}
           type="text"
@@ -254,11 +254,11 @@ const AutoSuggestInput = ({
           onFocus={() => value.trim() && suggestions.length > 0 && setShowSuggestions(true)}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full pl-12 pr-10 py-3.5 border border-cyan-300/30 bg-slate-950/80 text-cyan-50 placeholder:text-cyan-100/35 rounded-2xl focus:ring-2 focus:ring-cyan-400/80 focus:border-cyan-300/80 transition-all caret-cyan-300"
+          className="research-input pl-12 pr-10"
           autoComplete="off"
         />
         {isLoading && (
-          <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-200/70 animate-spin" />
+          <Loader2 className="absolute right-4 top-[calc(50%+0.2rem)] -translate-y-1/2 w-5 h-5 text-[var(--research-muted)] animate-spin" />
         )}
       </div>
 
@@ -266,22 +266,22 @@ const AutoSuggestInput = ({
       {showSuggestions && (suggestions.length > 0 || recentSearches.length > 0) && (
         <div 
           ref={suggestionRef}
-          className="absolute z-50 w-full mt-2 bg-slate-900/95 rounded-2xl shadow-2xl border border-cyan-300/25 max-h-80 overflow-y-auto backdrop-blur"
+          className="absolute z-50 w-full mt-2 bg-[var(--research-surface)] rounded-lg border border-[var(--research-border)] max-h-80 overflow-y-auto text-[var(--research-ink)]"
         >
           {/* Recent Searches */}
           {!value.trim() && recentSearches.length > 0 && (
-            <div className="p-2 border-b border-slate-700/70">
-              <div className="px-3 py-1 text-xs font-medium text-cyan-100/60 uppercase">
+            <div className="p-2 border-b border-[var(--research-border)]">
+              <div className="px-3 py-1 text-xs font-medium text-[var(--research-muted)] uppercase">
                 Recent Searches
               </div>
               {recentSearches.map((search, index) => (
                 <button
                   key={`recent-${index}`}
                   onClick={() => selectSuggestion({ name: search, matchType: 'recent' })}
-                  className="w-full flex items-center px-3 py-2 hover:bg-slate-800 rounded-lg text-left"
+                  className="w-full flex items-center px-3 py-2 hover:bg-[var(--research-surface-muted)] rounded-lg text-left"
                 >
-                  <Search className="w-4 h-4 text-cyan-100/60 mr-3" />
-                  <span className="text-cyan-50">{search}</span>
+                  <Search className="w-4 h-4 text-[var(--research-muted)] mr-3" />
+                  <span>{search}</span>
                 </button>
               ))}
             </div>
@@ -289,8 +289,8 @@ const AutoSuggestInput = ({
 
           {/* Molecule Suggestions */}
           {suggestions.filter(s => s.matchType === 'molecule').length > 0 && (
-            <div className="p-2 border-b border-slate-700/70">
-              <div className="px-3 py-1 text-xs font-medium text-cyan-100/60 uppercase">
+            <div className="p-2 border-b border-[var(--research-border)]">
+              <div className="px-3 py-1 text-xs font-medium text-[var(--research-muted)] uppercase">
                 Molecules
               </div>
               {suggestions.filter(s => s.matchType === 'molecule').map((suggestion, index) => (
@@ -298,13 +298,13 @@ const AutoSuggestInput = ({
                   key={`mol-${index}`}
                   onClick={() => selectSuggestion(suggestion)}
                   className={`w-full flex items-center px-3 py-2 rounded-lg text-left transition-colors ${
-                    selectedIndex === index ? 'bg-cyan-500/20' : 'hover:bg-slate-800'
+                    selectedIndex === index ? 'bg-[var(--research-surface-muted)]' : 'hover:bg-[var(--research-surface-muted)]'
                   }`}
                 >
                   {getTypeIcon(suggestion.type)}
                   <div className="ml-3 flex-1">
-                    <div className="font-medium text-cyan-50">{suggestion.name}</div>
-                    <div className="text-xs text-cyan-100/70">
+                    <div className="font-medium">{suggestion.name}</div>
+                    <div className="text-xs text-[var(--research-muted)]">
                       {suggestion.category}
                       {suggestion.synonyms?.length > 0 && (
                         <span className="ml-2">
@@ -314,7 +314,7 @@ const AutoSuggestInput = ({
                     </div>
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    suggestion.type === 'drug' ? 'bg-cyan-500/25 text-cyan-100' : 'bg-violet-500/25 text-violet-100'
+                    suggestion.type === 'drug' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200' : 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200'
                   }`}>
                     {suggestion.type}
                   </span>
@@ -326,7 +326,7 @@ const AutoSuggestInput = ({
           {/* NLP Query Suggestions */}
           {suggestions.filter(s => s.matchType === 'nlp').length > 0 && (
             <div className="p-2">
-              <div className="px-3 py-1 text-xs font-medium text-cyan-100/60 uppercase">
+              <div className="px-3 py-1 text-xs font-medium text-[var(--research-muted)] uppercase">
                 Suggested Queries
               </div>
               {suggestions.filter(s => s.matchType === 'nlp').map((suggestion, index) => {
@@ -336,11 +336,11 @@ const AutoSuggestInput = ({
                     key={`nlp-${index}`}
                     onClick={() => selectSuggestion(suggestion)}
                     className={`w-full flex items-center px-3 py-2 rounded-lg text-left transition-colors ${
-                      selectedIndex === actualIndex ? 'bg-cyan-500/20' : 'hover:bg-slate-800'
+                      selectedIndex === actualIndex ? 'bg-[var(--research-surface-muted)]' : 'hover:bg-[var(--research-surface-muted)]'
                     }`}
                   >
                     {getTypeIcon('query')}
-                    <span className="ml-3 text-cyan-50">{suggestion.name}</span>
+                    <span className="ml-3">{suggestion.name}</span>
                   </button>
                 );
               })}

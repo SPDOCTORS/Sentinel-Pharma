@@ -29,10 +29,18 @@ def _sha256(path: Path) -> str:
 class CandidateRanker:
     """Loads a fixed validation-selected checkpoint; ranking makes no HTTP calls."""
 
-    def __init__(self, graph_path: Path, *, expected_hash: str = GRAPH_HASH, robust_artifact: Path = ROBUST_ARTIFACT):
+    def __init__(
+        self,
+        graph_path: Path,
+        *,
+        expected_hash: str = GRAPH_HASH,
+        robust_artifact: Path = ROBUST_ARTIFACT,
+        expected_dataset_version: str = "biomedical_graph_v4",
+    ):
         self.dataset = V4LinkPredictionDataset.load(graph_path, expected_hash)
         self.graph_path = Path(graph_path)
         self.robust_artifact = Path(robust_artifact)
+        self.expected_dataset_version = expected_dataset_version
         self.selection = self._select_checkpoint()
         self.split = self.dataset.split("per_drug_stratified", self.selection["splitSeed"])
         self.graph = relation_tensor_graph(self.dataset, self.split)
@@ -46,7 +54,7 @@ class CandidateRanker:
         if not manifest_path.is_file() or not runs_path.is_file():
             raise ValueError("Phase 2J robust artifact is incomplete")
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        if manifest.get("graph", {}).get("datasetVersion") != "biomedical_graph_v4" or manifest["graph"].get("datasetHash") != self.dataset.graph["datasetHash"]:
+        if manifest.get("graph", {}).get("datasetVersion") != self.expected_dataset_version or manifest["graph"].get("datasetHash") != self.dataset.graph["datasetHash"]:
             raise ValueError("Phase 2J artifact graph lineage mismatch")
         # Predetermined canonical identity, not a comparison among test metrics.
         matches = [item for item in json.loads(runs_path.read_text(encoding="utf-8")) if item["splitSeed"] == CANONICAL_SPLIT_SEED and item["modelSeed"] == CANONICAL_MODEL_SEED]
@@ -55,7 +63,11 @@ class CandidateRanker:
         run = matches[0]
         checkpoint = Path(run["checkpoint"]["path"])
         if not checkpoint.is_absolute():
-            checkpoint = Path(__file__).resolve().parents[3] / checkpoint
+            # Manifests created from different working directories contain
+            # either ``artifacts/...`` or ``ai_engine/artifacts/...``. The
+            # selected checkpoint must still live in this frozen evaluation.
+            checkpoint_name = Path(str(checkpoint).replace("\\", "/")).name
+            checkpoint = self.robust_artifact / "checkpoints" / checkpoint_name
         if not checkpoint.is_file() or _sha256(checkpoint) != run["checkpoint"]["sha256"]:
             raise ValueError("Checkpoint SHA256 mismatch")
         if run.get("selectedEpoch") is None or run.get("validationMrr") is None:
@@ -85,6 +97,26 @@ class CandidateRanker:
         matches = [identifier for identifier, item in self.entities.items() if item["entityType"] == "DRUG" and query in {identifier.casefold(), str(item.get("name", "")).casefold(), *(str(alias).casefold() for alias in item.get("aliases", []))}]
         if len(matches) != 1:
             raise ValueError(f"Unknown or ambiguous drug identifier: {drug_id}")
+        return matches[0]
+
+    def _resolve_disease(self, disease_id: str) -> str:
+        """Resolve only exact canonical IDs, names, or aliases; never guess."""
+        if not isinstance(disease_id, str) or not disease_id.strip():
+            raise ValueError("disease_id is required")
+        query = disease_id.strip().casefold()
+        matches = [
+            identifier
+            for identifier, item in self.entities.items()
+            if item["entityType"] == "DISEASE"
+            and query
+            in {
+                identifier.casefold(),
+                str(item.get("name", "")).casefold(),
+                *(str(alias).casefold() for alias in item.get("aliases", [])),
+            }
+        ]
+        if len(matches) != 1:
+            raise ValueError(f"Unknown or ambiguous disease identifier: {disease_id}")
         return matches[0]
 
     def _score(self, drug: str, disease: str) -> float:
@@ -120,6 +152,33 @@ class CandidateRanker:
         candidates = [disease for disease in self.dataset.diseases if (drug, disease) not in self.dataset.positive_set]
         ranked = sorted(((disease, self._score(drug, disease)) for disease in candidates), key=lambda item: (-item[1], item[0]))[:top_k]
         return [{"drug": self._named_entity(drug), "disease": self._named_entity(disease), "modelScore": score, "rank": rank, "candidateStatus": "UNOBSERVED_CANDIDATE", "provenance": DataMode.MODEL_PREDICTION.value, "verificationStatus": VerificationStatus.MODEL_INFERENCE.value, "graphDatasetVersion": self.dataset.graph["datasetVersion"], "graphDatasetHash": self.dataset.graph["datasetHash"], "checkpointHash": self.selection["sha256"], "structuralSupport": self._structural_support(drug, disease)} for rank, (disease, score) in enumerate(ranked, 1)]
+
+    def rank_drugs_for_disease(self, disease_id: str, top_k: int = 10) -> list[dict[str, Any]]:
+        """Rank unobserved drugs for one exactly resolved disease."""
+        if not isinstance(top_k, int) or isinstance(top_k, bool) or top_k < 1:
+            raise ValueError("top_k must be a positive integer")
+        disease = self._resolve_disease(disease_id)
+        candidates = [drug for drug in self.dataset.drugs if (drug, disease) not in self.dataset.positive_set]
+        ranked = sorted(
+            ((drug, self._score(drug, disease)) for drug in candidates),
+            key=lambda item: (-item[1], item[0]),
+        )[:top_k]
+        return [
+            {
+                "drug": self._named_entity(drug),
+                "disease": self._named_entity(disease),
+                "modelScore": score,
+                "rank": rank,
+                "candidateStatus": "UNOBSERVED_CANDIDATE",
+                "provenance": DataMode.MODEL_PREDICTION.value,
+                "verificationStatus": VerificationStatus.MODEL_INFERENCE.value,
+                "graphDatasetVersion": self.dataset.graph["datasetVersion"],
+                "graphDatasetHash": self.dataset.graph["datasetHash"],
+                "checkpointHash": self.selection["sha256"],
+                "structuralSupport": self._structural_support(drug, disease),
+            }
+            for rank, (drug, score) in enumerate(ranked, 1)
+        ]
 
     async def enrich_candidate_evidence(self, candidate: dict[str, Any], *, pubmed_service: PubMedService | None = None, clinical_trials_service: ClinicalTrialsService | None = None, limit: int = 5) -> dict[str, Any]:
         drug = candidate["drug"]["name"]

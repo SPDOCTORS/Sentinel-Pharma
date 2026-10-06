@@ -12,14 +12,14 @@ export default function EvidenceProvenanceNotice({ payload = {} }) {
   const reason = payload.unavailableReason?.message || payload.error?.message;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-600 dark:bg-slate-900/60" role="status">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="research-provenance-notice" role="status">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <EvidenceModeBadge dataMode={dataMode} verificationStatus={payload.verificationStatus} />
-        <span className="text-xs text-slate-500 dark:text-slate-400">
+        <span className="font-mono text-[11px] text-[var(--research-muted)]">
           Evidence contract v{payload.evidenceContractVersion || 'not supplied'}
         </span>
       </div>
-      <p className="mt-2 text-sm text-slate-700 dark:text-slate-200">
+      <p className="mt-2 text-sm leading-5 text-[var(--research-muted)]">
         {descriptions[dataMode] || descriptions.UNAVAILABLE}
       </p>
       {dataMode === 'UNAVAILABLE' && reason && (

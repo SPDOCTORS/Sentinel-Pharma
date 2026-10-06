@@ -12,7 +12,6 @@
 import React, { useState, useMemo } from 'react';
 import { 
   TrendingUp,
-  TrendingDown,
   DollarSign,
   Shield,
   AlertTriangle,
@@ -21,23 +20,16 @@ import {
   Target,
   Award,
   BarChart3,
-  PieChart,
   Activity,
   Users,
   Globe,
   FileText,
-  Pill,
   Sparkles,
-  Info,
   Download,
-  ChevronRight,
-  LineChart
 } from 'lucide-react';
 
 const ComprehensiveSummary = ({ agentResults, molecule }) => {
   const [activeMetric, setActiveMetric] = useState('overview');
-
-  if (!agentResults) return null;
 
   // Aggregate data from all agents
   const aggregatedData = useMemo(() => {
@@ -46,14 +38,12 @@ const ComprehensiveSummary = ({ agentResults, molecule }) => {
       exim,
       patent,
       clinical,
-      internal_knowledge,
       web_intelligence,
       regulatory,
       patient_sentiment,
-      vision,
       validation,
       simulation_disclosure
-    } = agentResults;
+    } = agentResults || {};
 
     // Market & Financial
     const marketSize = iqvia?.global_market_size_usd_bn || iqvia?.market_size?.total_market_usd_bn || 4.2;
@@ -131,6 +121,8 @@ const ComprehensiveSummary = ({ agentResults, molecule }) => {
       }
     };
   }, [agentResults]);
+
+  if (!agentResults) return null;
 
   // Calculate overall recommendation
   const getOverallRecommendation = () => {

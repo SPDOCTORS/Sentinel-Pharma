@@ -24,6 +24,7 @@ const authRoutes = require('./routes/authRoutes');
 const { attachAuthUser, requireAuth, requireRoles } = require('./middleware/auth');
 const { createRateLimiter, dynamicRateLimiter } = require('./utils/rateLimiter');
 const { redisClient } = require('./utils/redis');
+const { otpStore } = require('./utils/otpStore');
 const { metricsMiddleware, metricsEndpoint } = require('./utils/metrics');
 const { cacheMiddleware } = require('./middleware/cache');
 const loadBalancer = require('./utils/loadBalancer');
@@ -173,11 +174,13 @@ app.get('/health', (req, res) => {
 
 // Readiness check endpoint - comprehensive dependency health
 app.get('/ready', async (req, res) => {
+  const otpStatus = otpStore.getStatus();
   const checks = {
     server: true,
     mongodb: false,
     aiEngine: false,
-    redis: redisClient.isReady
+    redis: redisClient.isReady,
+    otp: otpStatus.available
   };
   const details = {
     server: { status: 'healthy', message: 'Server is running' },
@@ -185,7 +188,12 @@ app.get('/ready', async (req, res) => {
     aiEngine: { status: 'unknown', message: 'Checking...' },
     redis: redisClient.isReady
       ? { status: 'healthy', message: 'Connected' }
-      : { status: 'degraded', message: 'Cache unavailable; OTP authentication is disabled' }
+      : { status: 'degraded', message: otpStatus.available
+        ? 'Cache and distributed token revocation unavailable'
+        : 'Cache unavailable; OTP authentication is disabled' },
+    otp: otpStatus.available
+      ? { status: otpStatus.durable ? 'healthy' : 'degraded', message: `Challenge storage: ${otpStatus.mode}` }
+      : { status: 'unhealthy', message: 'Challenge storage unavailable' }
   };
 
   try {
@@ -218,9 +226,12 @@ app.get('/ready', async (req, res) => {
     details.aiEngine = { status: 'unhealthy', message: `AI Engine unreachable: ${error.message}` };
   }
 
-  // Redis is a required production dependency: OTP, token revocation and cache
-  // semantics must not be advertised as ready while it is unavailable.
-  const allHealthy = checks.server && checks.mongodb && checks.aiEngine && checks.redis;
+  // Redis remains a required production dependency. Development may be ready
+  // with the explicitly bounded, process-local OTP fallback.
+  const localMemoryOtpReady = process.env.NODE_ENV === 'development'
+    && otpStatus.mode === 'memory';
+  const requiredStorageReady = checks.redis || localMemoryOtpReady;
+  const allHealthy = checks.server && checks.mongodb && checks.aiEngine && requiredStorageReady;
   const status = allHealthy ? 'ready' : 'not-ready';
 
   res.status(allHealthy ? 200 : 503).json({
@@ -229,7 +240,11 @@ app.get('/ready', async (req, res) => {
     timestamp: new Date().toISOString(),
     checks,
     details,
-    message: allHealthy ? 'All dependencies healthy' : 'Some dependencies unhealthy',
+    message: allHealthy && checks.redis
+      ? 'All dependencies healthy'
+      : allHealthy
+        ? 'Required local dependencies healthy; Redis-dependent features are degraded'
+        : 'Some required dependencies are unhealthy',
     version: '1.1'
   });
 });

@@ -9,7 +9,7 @@ import { motion } from 'framer-motion';
 // ============================================
 // Floating Particles Background
 // ============================================
-export const ParticleBackground = ({ count = 50, color = 'blue' }) => {
+export const ParticleBackground = ({ count = 50 }) => {
   const particles = Array.from({ length: count }, (_, i) => ({
     id: i,
     delay: Math.random() * 15,

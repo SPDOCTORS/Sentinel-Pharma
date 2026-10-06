@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.core.evidence import EVIDENCE_CONTRACT_VERSION, unavailable_response
+
 
 try:
     import torch
@@ -102,7 +104,7 @@ class GNNRepurposingService:
         self.triples: List[Dict[str, Any]] = []
         self.last_training: Optional[Dict[str, Any]] = None
         self.last_evaluation: Optional[Dict[str, Any]] = None
-        self.pdb_by_drug: Dict[str, str] = {}
+        self.verified_structures: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
         if self.artifact_path.exists():
             self.load_artifact()
@@ -151,6 +153,12 @@ class GNNRepurposingService:
             )
 
     def _normalize_row(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        structure_mapping = row.get("structure_mapping")
+        if isinstance(structure_mapping, str) and structure_mapping.strip():
+            try:
+                structure_mapping = json.loads(structure_mapping)
+            except json.JSONDecodeError:
+                structure_mapping = None
         return {
             "source": str(row["source"]).strip(),
             "source_type": str(row["source_type"]).strip().lower(),
@@ -158,7 +166,57 @@ class GNNRepurposingService:
             "target": str(row["target"]).strip(),
             "target_type": str(row["target_type"]).strip().lower(),
             "pdb_id": (str(row.get("pdb_id", "")).strip() or None),
+            "structure_mapping": structure_mapping if isinstance(structure_mapping, dict) else None,
         }
+
+    @staticmethod
+    def _verified_structure_mapping(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Accept only an explicit, traceable drug/target-to-PDB mapping."""
+        mapping = row.get("structure_mapping")
+        if not isinstance(mapping, dict):
+            return None
+        pdb_id = str(mapping.get("pdbId") or "").strip().upper()
+        provenance = mapping.get("provenance")
+        if (
+            row.get("source_type") != "drug"
+            or row.get("target_type") != "target"
+            or row.get("relation") != "targets"
+            or len(pdb_id) != 4
+            or not pdb_id.isalnum()
+            or str(mapping.get("drug") or "").casefold() != str(row.get("source") or "").casefold()
+            or str(mapping.get("target") or "").casefold() != str(row.get("target") or "").casefold()
+            or mapping.get("dataMode") != "SOURCE_BACKED"
+            or mapping.get("verificationStatus") != "VERIFIED_SOURCE"
+            or mapping.get("mappingStatus") != "VERIFIED"
+            or not mapping.get("mappingMethod")
+            or not isinstance(provenance, dict)
+            or provenance.get("source") != "RCSB PDB"
+            or str(provenance.get("sourceRecordId") or "").upper() != pdb_id
+            or not provenance.get("sourceUrl")
+            or not provenance.get("retrievedAt")
+        ):
+            return None
+        return {
+            "success": True,
+            "evidenceContractVersion": EVIDENCE_CONTRACT_VERSION,
+            "dataMode": "SOURCE_BACKED",
+            "verificationStatus": "VERIFIED_SOURCE",
+            "mappingStatus": "VERIFIED",
+            "mappingMethod": mapping["mappingMethod"],
+            "drug": row["source"],
+            "target": row["target"],
+            "pdbId": pdb_id,
+            "provenance": provenance,
+        }
+
+    def _structure_interaction(self, drug: str, target: str) -> Dict[str, Any]:
+        mapping = self.verified_structures.get((drug, target))
+        if mapping:
+            return mapping
+        return unavailable_response(
+            "VERIFIED_STRUCTURE_MAPPING_UNAVAILABLE",
+            "No verified drug/target-to-PDB mapping with provenance is available for this candidate.",
+        )
 
     def load_triples(self, dataset_path: Optional[str] = None) -> List[Dict[str, Any]]:
         if dataset_path:
@@ -206,6 +264,7 @@ class GNNRepurposingService:
         return self.last_evaluation
 
     def _build_graph_tensors(self, triples: List[Dict[str, Any]]) -> Dict[str, Any]:
+        self.verified_structures = {}
         node_set = set()
         node_types: Dict[str, str] = {}
         edge_pairs: List[Tuple[str, str]] = []
@@ -219,8 +278,9 @@ class GNNRepurposingService:
             node_types[dst] = t["target_type"]
             edge_pairs.append((src, dst))
             edge_pairs.append((dst, src))
-            if t.get("pdb_id") and t["source_type"] == "drug":
-                self.pdb_by_drug[src] = t["pdb_id"]
+            mapping = self._verified_structure_mapping(t)
+            if mapping:
+                self.verified_structures[(src, dst)] = mapping
 
         node_to_idx = {name: i for i, name in enumerate(sorted(node_set))}
         idx_to_node = {i: name for name, i in node_to_idx.items()}
@@ -571,7 +631,7 @@ class GNNRepurposingService:
             "edge_index": self.edge_index,
             "x": self.x,
             "triples": self.triples,
-            "pdb_by_drug": self.pdb_by_drug,
+            "verified_structures": list(self.verified_structures.values()),
             "last_training": self.last_training,
         }
         torch.save(payload, self.artifact_path)
@@ -591,8 +651,12 @@ class GNNRepurposingService:
         self.type_to_idx = payload["type_to_idx"]
         self.edge_index = payload["edge_index"]
         self.x = payload["x"]
-        self.triples = payload.get("triples", [])
-        self.pdb_by_drug = payload.get("pdb_by_drug", {})
+        self.triples = [self._normalize_row(row) for row in payload.get("triples", [])]
+        self.verified_structures = {}
+        for row in self.triples:
+            mapping = self._verified_structure_mapping(row)
+            if mapping:
+                self.verified_structures[(row["source"], row["target"])] = mapping
         self.last_training = payload.get("last_training")
 
         in_dim = self.x.shape[1]
@@ -716,7 +780,7 @@ class GNNRepurposingService:
 
             trail = self._find_evidence_trail(node_name, disease_node)
             target_name = self._pick_target_for_drug(node_name)
-            pdb_id = self.pdb_by_drug.get(node_name, "1HSG")
+            interaction = self._structure_interaction(node_name, target_name)
 
             candidates.append(
                 {
@@ -726,7 +790,7 @@ class GNNRepurposingService:
                     "rationale": "Predicted by GraphSAGE link prediction over DrugBank-oriented biomedical KG.",
                     "evidenceLevel": self._candidate_evidence_level(node_name, disease_node),
                     "evidenceTrail": trail,
-                    "interaction": {"pdbId": pdb_id},
+                    "interaction": interaction,
                 }
             )
 

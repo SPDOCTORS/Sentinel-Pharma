@@ -53,6 +53,12 @@ const normalizeAgentsForArchive = (agents = []) => (
     : []
 );
 
+const summarizeKnowledgeGraphForArchive = (graph = {}) => ({
+  nodes: Array.isArray(graph.nodes) ? graph.nodes.length : Number(graph.nodes) || 0,
+  edges: Array.isArray(graph.edges) ? graph.edges.length : Number(graph.edges) || 0,
+  keyPathways: graph.keyPathways || graph.key_pathways || []
+});
+
 const computeQualityScore = (analysisResults = {}, expectedAgentCount = 9, durationMs = 0) => {
   const executed = Array.isArray(analysisResults?.agents_executed) ? analysisResults.agents_executed : [];
   const completed = executed.filter((agent) => agent?.status === 'completed').length;
@@ -543,7 +549,9 @@ const processResearch = async (req, res) => {
           modelUsed: analysisResults.model_used,
           results: enrichedResults,
           summary,
-          knowledgeGraph: enrichedResults?.knowledge_graph || enrichedResults?.knowledgeGraph || {},
+          knowledgeGraph: summarizeKnowledgeGraphForArchive(
+            enrichedResults?.knowledge_graph || enrichedResults?.knowledgeGraph || {}
+          ),
           agentsExecuted,
           totalProcessingTimeMs: processingTimeMs,
           status: 'completed',
@@ -639,6 +647,29 @@ const getGnnFallbackReason = (engineError, disease) => {
   };
 };
 
+const unavailableStructureMapping = () => unavailablePayload(
+  'VERIFIED_STRUCTURE_MAPPING_UNAVAILABLE',
+  'No verified drug/target-to-PDB mapping with provenance is available for this candidate.'
+);
+
+const normalizeCandidateStructure = (candidate = {}) => {
+  const mapping = candidate.interaction;
+  const pdbId = String(mapping?.pdbId || '').trim().toUpperCase();
+  const provenance = mapping?.provenance;
+  const verified = /^[A-Z0-9]{4}$/.test(pdbId) &&
+    mapping?.dataMode === 'SOURCE_BACKED' &&
+    mapping?.verificationStatus === 'VERIFIED_SOURCE' &&
+    mapping?.mappingStatus === 'VERIFIED' &&
+    Boolean(mapping?.mappingMethod) &&
+    String(mapping?.drug || '').toLowerCase() === String(candidate.drug || '').toLowerCase() &&
+    String(mapping?.target || '').toLowerCase() === String(candidate.target || '').toLowerCase() &&
+    provenance?.source === 'RCSB PDB' &&
+    String(provenance?.sourceRecordId || '').toUpperCase() === pdbId &&
+    provenance?.sourceUrl === `https://www.rcsb.org/structure/${pdbId}` &&
+    Boolean(provenance?.retrievedAt);
+  return { ...candidate, interaction: verified ? { ...mapping, pdbId } : unavailableStructureMapping() };
+};
+
 const getEmergencyRepurposingProfile = (disease) => {
   const normalized = String(disease || '').toLowerCase();
 
@@ -656,7 +687,7 @@ const getEmergencyRepurposingProfile = (disease) => {
           nextStep: 'Validate timing of administration, disease stage, resistance profile, and clinical endpoint benefit.',
           evidenceLevel: 'fallback',
           evidenceTrail: ['Remdesivir', 'RNA polymerase inhibition', 'viral replication blockade', disease],
-          interaction: { pdbId: '7BV2' }
+          interaction: unavailableStructureMapping()
         },
         {
           drug: 'Dexamethasone',
@@ -667,7 +698,7 @@ const getEmergencyRepurposingProfile = (disease) => {
           nextStep: 'Stratify by oxygen requirement, immune status, infection risk, and inflammatory markers.',
           evidenceLevel: 'fallback',
           evidenceTrail: ['Dexamethasone', 'glucocorticoid receptor', 'cytokine suppression', disease],
-          interaction: { pdbId: '1M2Z' }
+          interaction: unavailableStructureMapping()
         },
         {
           drug: 'Baricitinib',
@@ -678,7 +709,7 @@ const getEmergencyRepurposingProfile = (disease) => {
           nextStep: 'Check thrombosis risk, combination therapy safety, and patient immune suppression status.',
           evidenceLevel: 'fallback',
           evidenceTrail: ['Baricitinib', 'JAK1/JAK2', 'host inflammatory signaling', disease],
-          interaction: { pdbId: '6BBU' }
+          interaction: unavailableStructureMapping()
         },
         {
           drug: 'Favipiravir',
@@ -689,7 +720,7 @@ const getEmergencyRepurposingProfile = (disease) => {
           nextStep: 'Validate antiviral potency, dosing window, pregnancy safety, and outcome-level trial evidence.',
           evidenceLevel: 'fallback',
           evidenceTrail: ['Favipiravir', 'RNA polymerase inhibition', 'RNA virus replication', disease],
-          interaction: { pdbId: '7AAP' }
+          interaction: unavailableStructureMapping()
         }
       ]
     };
@@ -709,7 +740,7 @@ const getEmergencyRepurposingProfile = (disease) => {
           nextStep: 'Confirm target relevance to the new pathogen before prioritizing clinical trials.',
           evidenceLevel: 'fallback',
           evidenceTrail: ['Oseltamivir', 'neuraminidase', 'viral release pathway', disease],
-          interaction: { pdbId: '2HU4' }
+          interaction: unavailableStructureMapping()
         },
         {
           drug: 'Dexamethasone',
@@ -720,7 +751,7 @@ const getEmergencyRepurposingProfile = (disease) => {
           nextStep: 'Separate early antiviral phase from late inflammatory phase before use-case selection.',
           evidenceLevel: 'fallback',
           evidenceTrail: ['Dexamethasone', 'glucocorticoid receptor', 'lung inflammation modulation', disease],
-          interaction: { pdbId: '1M2Z' }
+          interaction: unavailableStructureMapping()
         },
         {
           drug: 'Azithromycin',
@@ -731,7 +762,7 @@ const getEmergencyRepurposingProfile = (disease) => {
           nextStep: 'Avoid assuming antiviral benefit; validate antimicrobial stewardship and resistance risks.',
           evidenceLevel: 'fallback',
           evidenceTrail: ['Azithromycin', 'secondary infection control', 'respiratory complication', disease],
-          interaction: { pdbId: '4V7Y' }
+          interaction: unavailableStructureMapping()
         }
       ]
     };
@@ -757,7 +788,7 @@ const buildFallbackRepurposingResponse = (requestId, disease, topK, fallbackReas
       nextStep: 'Validate disease-specific mechanism, contraindications, and real-world outcome signal.',
       evidenceLevel: 'fallback',
       evidenceTrail: ['Metformin', 'AMPK', 'Cell Stress Pathway', disease],
-      interaction: { pdbId: '4CFE' }
+      interaction: unavailableStructureMapping()
     },
     {
       drug: 'Simvastatin',
@@ -769,7 +800,7 @@ const buildFallbackRepurposingResponse = (requestId, disease, topK, fallbackReas
       nextStep: 'Validate interaction risks, disease-stage relevance, and clinical outcome signal.',
       evidenceLevel: 'fallback',
       evidenceTrail: ['Simvastatin', 'HMGCR', 'Lipid Signaling', disease],
-      interaction: { pdbId: '1HWK' }
+      interaction: unavailableStructureMapping()
     },
     {
       drug: 'Dapagliflozin',
@@ -781,7 +812,7 @@ const buildFallbackRepurposingResponse = (requestId, disease, topK, fallbackReas
       nextStep: 'Screen for dehydration, ketoacidosis, renal function, and disease-specific benefit.',
       evidenceLevel: 'fallback',
       evidenceTrail: ['Dapagliflozin', 'SGLT2', 'Metabolic Pathway', disease],
-      interaction: { pdbId: '7VSI' }
+      interaction: unavailableStructureMapping()
     }
   ].map((candidate) => ({
     rationale: fallbackReason.candidateRationale,
@@ -844,7 +875,7 @@ const discoverRepurposingCandidates = async (req, res) => {
         requestId,
         disease: gnnResponse.disease || disease,
         model: gnnResponse.model,
-        candidates: gnnResponse.candidates || [],
+        candidates: (gnnResponse.candidates || []).map(normalizeCandidateStructure),
         metadata: {
           ...(gnnResponse.metadata || {}),
           generatedAt: new Date().toISOString(),

@@ -23,10 +23,27 @@ module.exports = {
     }
   },
   plugins: ['react-refresh'],
+  globals: {
+    process: 'readonly'
+  },
   rules: {
     'react/react-in-jsx-scope': 'off',
     'react/prop-types': 'off',
     'react-refresh/only-export-components': ['warn', { allowConstantExport: true }]
   },
+  overrides: [
+    {
+      files: ['src/**/*.test.{js,jsx}', 'src/**/__tests__/**/*.{js,jsx}'],
+      rules: {
+        'react/display-name': 'off'
+      }
+    },
+    {
+      files: ['src/context/**/*.{js,jsx}'],
+      rules: {
+        'react-refresh/only-export-components': 'off'
+      }
+    }
+  ],
   ignorePatterns: ['dist/', 'coverage/', 'node_modules/']
 };

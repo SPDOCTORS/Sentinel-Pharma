@@ -30,7 +30,6 @@ const ReportHistory = ({ onViewReport, onClose }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, pages: 1 });
   const [stats, setStats] = useState(null);
-  const [selectedReports, setSelectedReports] = useState([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
 
   const ITEMS_PER_PAGE = 10;

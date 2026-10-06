@@ -19,4 +19,6 @@ def test_smoke_manifest_references_exact_v4_and_prediction_label(tmp_path):
 
 def test_production_repurposing_service_is_unchanged():
     production = Path(__file__).parents[1] / "app/services/gnn/repurposing_gnn_service.py"
-    assert hashlib.sha256(production.read_bytes()).hexdigest() == "a02fe64ef29d88dace17ec403637f082e9abb57c9a8a4d64b06684eb99307476"
+    # Baseline includes the approved fail-closed structure-provenance policy;
+    # model scoring and candidate ordering remain unchanged.
+    assert hashlib.sha256(production.read_bytes()).hexdigest() == "d0673ed0dc520e944df851dc4d48b6692ffa678a15d3492f99fbbc638262df5d"

@@ -28,10 +28,10 @@ const safeFileToken = (value = 'benchmark-report') => (
 
 const BenchmarkProductPanel = ({ agentResults, molecule }) => {
   const benchmark = agentResults?.benchmarking;
-  const recommendations = agentResults?.recommendation_dossier || [];
-  const retrospective = agentResults?.retrospective_case_studies || [];
-  const validation = agentResults?.validation || {};
-  const disclosure = agentResults?.simulation_disclosure || {};
+  const recommendations = useMemo(() => agentResults?.recommendation_dossier || [], [agentResults]);
+  const retrospective = useMemo(() => agentResults?.retrospective_case_studies || [], [agentResults]);
+  const validation = useMemo(() => agentResults?.validation || {}, [agentResults]);
+  const disclosure = useMemo(() => agentResults?.simulation_disclosure || {}, [agentResults]);
 
   const exportPayload = useMemo(() => ({
     molecule,
@@ -348,18 +348,31 @@ const BenchmarkProductPanel = ({ agentResults, molecule }) => {
         )}
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-slate-200 dark:border-slate-700">
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <Target className="w-5 h-5 text-indigo-600" />
-          Recommendation Dossier
-        </h3>
+      <div className="research-result-card">
+        <div className="research-result-section-heading">
+          <div>
+            <p className="research-eyebrow">Ranked review queue</p>
+            <h3 className="flex items-center gap-2 text-lg font-bold text-[var(--research-ink)]">
+              <Target className="h-5 w-5 text-[var(--research-prediction)]" />
+              Recommendation dossier
+            </h3>
+            <p className="mt-1 text-sm text-[var(--research-muted)]">Review validation status, evidence strength, uncertainty, and source support together.</p>
+          </div>
+          <span className="research-count-label">{recommendations.length} recommendations</span>
+        </div>
         <div className="mt-4 space-y-4">
-          {recommendations.map((item) => {
+          {recommendations.map((item, index) => {
             const tone = getLabelTone(item.validationLabel);
             return (
-              <div key={item.id} className="rounded-xl border border-slate-200 dark:border-slate-600 p-4 bg-slate-50 dark:bg-slate-900/40">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="font-semibold text-slate-900 dark:text-white">{item.title}</div>
+              <article key={item.id} className="research-recommendation-card">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="research-rank-number">{index + 1}</span>
+                    <div>
+                      <div className="font-semibold leading-6 text-[var(--research-ink)]">{item.title}</div>
+                      <div className="mt-1 text-xs text-[var(--research-muted)]">Recommendation ID: <span className="font-mono">{item.id}</span></div>
+                    </div>
+                  </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <EvidenceModeBadge dataMode={item.dataMode} verificationStatus={item.verificationStatus} />
                     <div className={`px-2.5 py-1 rounded-full border text-xs font-semibold ${toneClass[tone]}`}>
@@ -367,56 +380,58 @@ const BenchmarkProductPanel = ({ agentResults, molecule }) => {
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 grid md:grid-cols-3 gap-3 text-sm">
-                  <div className="rounded-lg bg-white dark:bg-slate-800 p-3 border border-slate-200 dark:border-slate-700">
+                <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+                  <div className="research-metric-tile">
                     <div className="text-xs uppercase tracking-wide text-slate-500">Confidence</div>
-                    <div className="mt-1 font-bold text-slate-900 dark:text-white">{item.confidence}%</div>
+                    <div className="mt-1 flex items-baseline justify-between gap-2"><strong className="text-lg text-[var(--research-ink)]">{item.confidence}%</strong><span className="text-[11px] text-[var(--research-muted)]">reported</span></div>
+                    <div className="research-confidence-track mt-2" aria-hidden="true"><span style={{ width: `${Math.max(0, Math.min(100, item.confidence || 0))}%` }} /></div>
                   </div>
-                  <div className="rounded-lg bg-white dark:bg-slate-800 p-3 border border-slate-200 dark:border-slate-700">
+                  <div className="research-metric-tile">
                     <div className="text-xs uppercase tracking-wide text-slate-500">Evidence Strength</div>
                     <div className="mt-1 font-medium text-slate-900 dark:text-white">{item.evidenceStrength}</div>
                   </div>
-                  <div className="rounded-lg bg-white dark:bg-slate-800 p-3 border border-slate-200 dark:border-slate-700">
+                  <div className="research-metric-tile">
                     <div className="text-xs uppercase tracking-wide text-slate-500">Output Type</div>
                     <div className="mt-1 font-medium text-slate-900 dark:text-white">{item.outputType}</div>
                   </div>
                 </div>
-                <div className="mt-3 grid md:grid-cols-2 gap-3 text-sm">
-                  <div className="rounded-lg border border-cyan-200 bg-cyan-50 p-3">
-                    <div className="font-semibold text-cyan-900 flex items-center gap-2">
+                <div className="mt-3 grid gap-3 text-sm md:grid-cols-2">
+                  <div className="research-evidence-block research-evidence-block--path">
+                    <div className="flex items-center gap-2 font-semibold text-[var(--research-primary)]">
                       <TrendingUp className="w-4 h-4" />
                       Evidence Path
                     </div>
-                    <div className="mt-2 text-cyan-900/90">
+                    <div className="mt-2 break-words text-[var(--research-muted)]">
                       {item.evidencePath?.join(' -> ')}
                     </div>
                   </div>
-                  <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
-                    <div className="font-semibold text-rose-900 flex items-center gap-2">
+                  <div className="research-evidence-block research-evidence-block--risk">
+                    <div className="flex items-center gap-2 font-semibold text-[var(--research-unavailable)]">
                       <ShieldAlert className="w-4 h-4" />
                       Contraindication
                     </div>
-                    <div className="mt-2 text-rose-900/90">{item.contraindication}</div>
+                    <div className="mt-2 text-[var(--research-muted)]">{item.contraindication}</div>
                   </div>
                 </div>
                 <div className="mt-3 grid md:grid-cols-2 gap-3 text-sm">
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                    <div className="font-semibold text-amber-900">Uncertainty</div>
-                    <div className="mt-2 text-amber-900/90">{item.uncertainty}</div>
+                  <div className="research-evidence-block research-evidence-block--uncertainty">
+                    <div className="font-semibold text-[var(--research-warning)]">Uncertainty</div>
+                    <div className="mt-2 text-[var(--research-muted)]">{item.uncertainty}</div>
                   </div>
-                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-                    <div className="font-semibold text-emerald-900 flex items-center gap-2">
+                  <div className="research-evidence-block research-evidence-block--source">
+                    <div className="flex items-center gap-2 font-semibold text-[var(--research-evidence)]">
                       <BookOpen className="w-4 h-4" />
                       Source-Grounded Support
                     </div>
-                    <ul className="mt-2 space-y-1 text-emerald-900/90">
+                    <ul className="mt-2 space-y-1.5 text-[var(--research-muted)]">
                       {(item.supportingSources || []).map((source) => (
-                        <li key={source.id}>- {source.id}: {source.title}</li>
+                        <li key={source.id} className="flex items-start gap-2"><span className="research-source-dot" /> <span><strong className="font-mono text-xs text-[var(--research-ink)]">{source.id}</strong>: {source.title}</span></li>
                       ))}
+                      {(item.supportingSources || []).length === 0 && <li>No traceable source records attached.</li>}
                     </ul>
                   </div>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>

@@ -1,5 +1,43 @@
 # SentinelPharma Audit Status
 
+## Final validated research MVP - 2026-10-06
+
+This section is the authoritative current state. Older dated sections below are retained as implementation history.
+
+- The LIVE workspace now separates **Drug-Disease Evidence** from **Disease-First Candidate Discovery**. GraphSAGE and frozen V5 rankings are explicitly disease-conditioned; the evidence-flow molecule does not affect ranking scores.
+- Ranked candidates can be investigated through the existing authenticated LIVE workflow for PubMed, ClinicalTrials.gov, the bounded V5 evidence graph, and verified drug/target-to-PDB structures. Missing source, graph, or structure evidence fails closed as `UNAVAILABLE`; no demo graph or placeholder PDB is substituted.
+- The frozen V5 model remains a non-primary shadow channel and does not alter primary ranking behavior. V5 graph edges and nodes retain provenance, dataset lineage, and bounded pair-specific scope.
+- Live reports persist the complete evidence payload while the legacy archive summary stores graph node/edge counts, preventing structured V5 arrays from breaking persistence.
+- Browser E2E passed for login -> Type 2 Diabetes discovery -> Dapagliflozin selection -> evidence surfaces -> V5 graph state -> structure state -> persisted report. The exercised pair correctly returned explicit `UNAVAILABLE` states where external or exact-pair evidence was absent. MongoDB readback confirmed completed report `39687962-c33a-4f2c-abf7-d7affbd3697b`.
+- Final validation passed: Python **79 tests** (57% coverage), server Jest **12 suites / 32 tests**, client Jest **12 suites / 27 tests**, frontend ESLint with **0 errors and 0 warnings**, production Vite build, and `git diff --check`.
+- Remaining non-blocking warnings: upstream `torch.jit.script` deprecation, React Router v7 future flags in tests, expected load-balancer retry logging, stale Browserslist data, frontend chunks over 500 kB, and Windows LF-to-CRLF normalization notices.
+- Production infrastructure still requires deployment-host verification with authenticated Redis and Docker Compose. The broader multi-agent workflow remains explicitly synthetic/demo-only and is not represented as live source-backed research.
+
+## Frozen V5 shadow ranking integration - 2026-10-05
+
+- Added a read-only, lazily loaded V5 R-GCN shadow service backed only by the existing frozen V5 graph, evaluation manifest, and hash-verified checkpoint. It performs no training, online update, data download, or artifact write.
+- Extended the frozen candidate ranker with exact disease resolution and disease-first drug ranking. Unknown or ambiguous disease input fails closed; source-backed known indications remain excluded from the unobserved candidate universe.
+- The live research workflow now returns V5 output only in `shadowModelPrediction`, with `MODEL_PREDICTION` / `MODEL_INFERENCE` provenance and explicit `shadow=true`, `primary=false` labels. Shadow failure cannot replace or fail the primary GNN result.
+- The live dashboard renders the V5 result in a separate **Shadow evaluation channel**, visibly labels it **Not primary**, and describes scores as experimental ordering signals rather than probabilities or clinical evidence.
+- Verification passed on the completed tree: Python 73 tests, server Jest 12 suites/31 tests, client Jest 8 suites/18 tests before the focused UI addition, client production build, plus focused shadow UI (2 tests), controller passthrough (3 tests), and targeted ESLint. The only Python warning is the existing upstream `torch.jit.script` deprecation; the client build retains its existing large-chunk and stale Browserslist warnings.
+
+## Local Redis/OTP unblock - 2026-10-03
+
+- Restored the local OTP sign-up/sign-in path without weakening the production Redis contract. In development only, OTP challenges now fall back to process-local TTL storage when Redis is unavailable; Redis remains preferred whenever connected, and production/test configurations without Redis continue to fail closed.
+- Updated `/ready` to report Redis and OTP storage separately. A development server can be ready with `otp=memory` while clearly reporting degraded Redis-dependent caching and distributed token revocation. Production readiness still requires Redis.
+- Added `AUTH_OTP_MEMORY_FALLBACK` to the server environment example. The fallback defaults on only for `NODE_ENV=development` and can be disabled explicitly with `AUTH_OTP_MEMORY_FALLBACK=false`.
+- Verification passed: focused Redis/OTP/readiness tests (3 suites, 6 tests) and the complete server Jest suite (12 suites, 30 tests), both with `--runInBand --detectOpenHandles`. The OTP route test completes request and verification through the memory fallback; store tests cover expiry, Redis preference, and fail-closed behavior.
+- No frontend process was started. No dataset, model, graph artifact, or biomedical source data was changed.
+
+## Live workflow verification - 2026-10-01
+
+- Full regression suites passed on the current tree: server Jest 10 suites/25 tests; client Jest 6 suites/14 tests; Python 3.11 pytest 70 tests (55% coverage). The Python run used an isolated pytest temporary directory; the initial Python 3.14 run was invalidated by Temp-directory permissions and is not counted as a product failure.
+- Started the existing local FastAPI (`:8000`) and Express (`:3001`) services. `/health` succeeds for both. Express `/ready` remains HTTP 503 because Redis is unavailable; MongoDB and FastAPI checks pass. OTP login is therefore unavailable. A temporary password-authenticated research-check user was created for the API integration run.
+- The live, authenticated `POST /api/research` request for `metformin` and `Type 2 Diabetes` succeeded with `dataMode=SOURCE_BACKED`, `verificationStatus=VERIFIED_SOURCE`, and `degraded=false`. The report was persisted and read back through `GET /api/research/:requestId`: request ID `13cbf408-ad79-470f-afb1-eac400dad40e`.
+- Stored-report validation found 20 citations: 10 PubMed and 10 ClinicalTrials.gov. Every stored citation has a source identifier, URL, parseable retrieval timestamp, evidence contract version `1.0`, `SOURCE_BACKED` mode, and `VERIFIED_SOURCE` status. The GNN output is kept in `modelPrediction` with `MODEL_PREDICTION` mode and does not appear in the citations list. These labels verify source identity and report provenance, not clinical efficacy or study quality.
+- A true browser rendering test remains unverified. The in-app browser and Chrome were unavailable to the automation surface, and the Windows computer-use helper could not connect. The API and persistence checks above do not establish what a user sees in the report UI.
+- At the time of this run, Redis was unavailable (`/ready` returned 503 and OTP was disabled). The 2026-10-03 development fallback above resolves the local OTP blocker; browser automation and the earlier Docker Compose runtime/lint findings remain unverified or unresolved. No dataset, model, or graph artifact was rebuilt or changed.
+
 Audit date: 2026-10-01  
 Scope: repository audit plus approved P0.1-P0.3 implementation. Application and test source was updated; biomedical datasets, trained models, and graph artifacts were not modified or rebuilt.
 
@@ -79,8 +117,8 @@ The lint configurations are intentionally not weakened. These findings require a
 1. **Compose runtime verification remains outstanding.** The checked-in configuration now requires/injects its internal and datastore credentials and is covered by static regression tests, but Docker CLI is unavailable here to run `docker compose config` and a real container readiness check.
 2. **Python dependency reproducibility remains incomplete.** The documented isolated environment now works, but Python dependencies are range-based and have no lockfile.
 3. **Lint gates now run but do not pass.** The active findings are documented above; repairing them requires a separate source-cleanup approval.
-4. **Local Redis is unavailable.** Logs show connection refusal on IPv4 and IPv6 localhost. OTP authentication is explicitly disabled in this degraded state, blocking the normal authenticated user journey unless a pre-existing JWT path is used. Production Compose now fails readiness rather than masking this condition.
-5. **Source-backed primary analysis is not yet implemented.** The existing agent workflow is isolated behind explicit demo mode and labelled as synthetic at every rendered/exported boundary. With demo mode disabled, `/api/analyze` fails closed instead of substituting template claims.
+4. **Production Redis runtime verification remains outstanding.** This Windows environment still has no Redis service, Docker CLI, or accessible WSL distribution. Local development OTP now uses a bounded in-process TTL fallback, but production continues to require authenticated Redis for shared OTP challenges, cache, and distributed token revocation.
+5. **Source-backed multi-agent analysis is not yet implemented.** The live `/api/analyze` route now retrieves PubMed and ClinicalTrials.gov records and keeps GNN ranking separate. The broader agent workflow remains in explicit synthetic demo mode; record retrieval does not establish therapeutic efficacy or replace source-backed agent analysis.
 
 ### P1 correctness and design risks
 
@@ -105,11 +143,11 @@ Untracked: `ai_engine/app/agents/orchestrator.py.pre_provenance`, `ai_engine/app
 
 ## End-to-end workflow status
 
-**Not ready for production source-backed research.** P0.3 makes the current boundary provenance-first and prevents synthetic/model output from masquerading as citations, but normal OTP authentication is still blocked by missing local Redis, lint findings remain, container startup is unverified, and the primary multi-agent analysis is intentionally unavailable outside demo mode until source-backed agents are implemented.
+**Live API research and report persistence verified; local OTP unblocked; browser rendering and production readiness remain open.** The metformin/Type 2 Diabetes request retrieved source records, persisted a report, and preserved citation provenance on readback. Development OTP can now operate with process-local TTL storage when Redis is absent; production still requires Redis. Browser rendering, lint, and container startup remain unverified or unresolved. The broader multi-agent analysis remains in synthetic demo mode until source-backed agents are implemented.
 
 ## Current approval checkpoint
 
-P0.3 was completed under the current approval. Continue to require explicit approval before model training, dataset changes/downloads, or graph/model artifact generation. The next roadmap tranche is P1.4: align the canonical research request path around source-backed agents and a stable response schema.
+The local OTP path is now covered by a request/verification regression test without starting the frontend. A real production-like Redis/Compose runtime still needs verification on a host with those services available. Browser report rendering and the roadmap's P1.4 multi-agent alignment remain outstanding.
 
 ## Historical approval checkpoint (superseded)
 

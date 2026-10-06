@@ -22,6 +22,51 @@ test('uses the canonical FastAPI analysis endpoint and forwards mode in the body
   }));
 });
 
+test('forwards the browser live-evidence disease and preserves source-backed results', async () => {
+  const sourceBacked = {
+    researchMode: 'live',
+    dataMode: 'SOURCE_BACKED',
+    verificationStatus: 'VERIFIED_SOURCE',
+    degraded: false,
+    sourceResults: {
+      pubmed: { dataMode: 'SOURCE_BACKED', count: 10 },
+      clinicalTrials: { dataMode: 'SOURCE_BACKED', count: 10 }
+    },
+    citations: [{
+      sourceId: '123',
+      sourceUrl: 'https://pubmed.ncbi.nlm.nih.gov/123/',
+      retrievedAt: '2026-10-03T00:00:00Z',
+      dataMode: 'SOURCE_BACKED',
+      verificationStatus: 'VERIFIED_SOURCE'
+    }]
+  };
+  loadBalancer.request.mockResolvedValue({ data: sourceBacked });
+
+  const result = await analyzeCompound({
+    molecule: 'Metformin',
+    disease: 'Type 2 Diabetes',
+    researchMode: 'live',
+    mode: 'cloud',
+    provider: 'gemini',
+    requestId: 'browser-request-1'
+  });
+
+  expect(loadBalancer.request).toHaveBeenCalledWith('/api/analyze', expect.objectContaining({
+    method: 'POST',
+    data: expect.objectContaining({
+      molecule: 'Metformin',
+      disease: 'Type 2 Diabetes',
+      research_mode: 'live',
+      mode: 'cloud',
+      provider: 'gemini',
+      request_id: 'browser-request-1'
+    })
+  }));
+  expect(result).toEqual(sourceBacked);
+  expect(result.sourceResults.pubmed.dataMode).toBe('SOURCE_BACKED');
+  expect(result.sourceResults.clinicalTrials.dataMode).toBe('SOURCE_BACKED');
+});
+
 test('uses the internal source-backed PubMed endpoint', async () => {
   loadBalancer.request.mockResolvedValue({ data: { success: true, evidence: [] } });
   await searchPubMedEvidence({ query: 'metformin pancreatic cancer', limit: 1 });

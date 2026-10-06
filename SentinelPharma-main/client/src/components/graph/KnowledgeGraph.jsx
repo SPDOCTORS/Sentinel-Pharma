@@ -11,7 +11,7 @@
  * - Interactive zoom and pan
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   Network, 
   ZoomIn, 

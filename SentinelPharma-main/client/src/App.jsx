@@ -14,20 +14,13 @@ import LoginPage from './pages/LoginPage';
 
 function Layout({ children }) {
   return (
-    <div className="min-h-screen text-slate-100 relative overflow-hidden">
-      <div className="fixed inset-0 biotech-bg pointer-events-none" />
-      <div className="fixed inset-0 biotech-grid pointer-events-none opacity-35" />
-
-      <div className="relative z-10">
-        <Navbar />
-        <main className="container mx-auto px-4 py-8">{children}</main>
-
-        <footer className="border-t border-cyan-500/20 py-6 mt-auto bg-slate-950/60 backdrop-blur-xl">
-          <div className="container mx-auto px-4 text-center text-cyan-100/70 text-sm">
-            SentinelPharma Neural Repurposing Workbench
-          </div>
-        </footer>
-      </div>
+    <div className="research-app-shell min-h-screen">
+      <Navbar />
+      <main className="research-app-main">{children}</main>
+      <footer className="research-app-footer">
+        <span>SentinelPharma biomedical evidence workbench</span>
+        <span>Research support only · Not clinical guidance</span>
+      </footer>
     </div>
   );
 }

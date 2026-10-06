@@ -18,7 +18,6 @@ import {
   Target,
   Clock,
   Award,
-  AlertTriangle,
   PieChart,
   BarChart3,
   LineChart,

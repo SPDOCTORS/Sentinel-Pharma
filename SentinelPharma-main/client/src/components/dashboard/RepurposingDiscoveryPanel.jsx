@@ -1,5 +1,5 @@
 import React from 'react';
-import { FlaskConical, Loader2, AlertCircle, Atom, Network, Microscope, ExternalLink, Activity, Clock3 } from 'lucide-react';
+import { FlaskConical, Loader2, AlertCircle, Network, Microscope, Activity, Clock3 } from 'lucide-react';
 import EmbeddedMoleculeViewer from './EmbeddedMoleculeViewer';
 import EvidenceModeBadge from '../ui/EvidenceModeBadge';
 
@@ -44,7 +44,9 @@ const RepurposingDiscoveryPanel = ({
   data,
   candidateEvidence = {},
   candidateEvidenceLoading = {},
-  onLoadCandidateEvidence
+  onLoadCandidateEvidence,
+  onInvestigateCandidate,
+  investigatingCandidate
 }) => {
   const outbreakPresets = [
     'COVID-19',
@@ -53,10 +55,10 @@ const RepurposingDiscoveryPanel = ({
   ];
 
   return (
-    <section className="dash-surface rounded-3xl p-5 md:p-8 space-y-6 animate-rise text-slate-100 border border-cyan-400/20 shadow-[0_0_40px_rgba(0,225,255,0.08)]">
+    <section className="research-lab-panel space-y-6 animate-rise text-slate-100">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="section-title text-2xl md:text-3xl font-extrabold text-cyan-100 flex items-center">
+          <h2 className="flex items-center text-xl font-bold tracking-tight text-white md:text-2xl">
             <FlaskConical className="w-6 h-6 mr-2 text-cyan-300" />
           Emergency Drug Repurposing Engine
         </h2>
@@ -111,7 +113,7 @@ const RepurposingDiscoveryPanel = ({
         <button
           type="submit"
           disabled={loading || !disease.trim()}
-          className="btn-premium px-6 py-3.5 rounded-2xl font-semibold text-slate-950 bg-gradient-to-r from-cyan-300 to-emerald-300 hover:from-cyan-200 hover:to-emerald-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center shadow-lg"
+          className="flex items-center justify-center rounded-xl bg-emerald-300 px-6 py-3.5 font-semibold text-slate-950 shadow-sm transition-colors hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? (
             <>
@@ -164,7 +166,7 @@ const RepurposingDiscoveryPanel = ({
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold text-cyan-100">
-                Existing-Drug Candidates for {data.disease}
+                Disease-Conditioned Existing-Drug Candidates for {data.disease}
               </h3>
               {data.metadata?.purpose && (
                 <p className="text-xs text-cyan-100/65 mt-1">{data.metadata.purpose}</p>
@@ -176,6 +178,7 @@ const RepurposingDiscoveryPanel = ({
             <EvidenceModeBadge dataMode={data.dataMode || 'MODEL_PREDICTION'} />
           </div>
           <div className="rounded-2xl border border-cyan-300/20 bg-slate-950/45 p-3 text-xs text-cyan-100/75">
+            <p className="mb-2 font-semibold text-cyan-100">Only the disease input affects this GraphSAGE ranking.</p>
             <span className="font-semibold text-emerald-200">Validated</span> means a direct drug-disease edge exists in the curated graph.
             <span className="font-semibold text-cyan-200 ml-2">Repurposed</span> means an existing drug is predicted for a new disease.
             <span className="font-semibold text-violet-200 ml-2">Predicted</span> means graph-only hypothesis.
@@ -185,7 +188,7 @@ const RepurposingDiscoveryPanel = ({
           <div className="grid md:grid-cols-2 gap-4">
             {data.candidates.map((candidate, idx) => (
               <article
-                key={`${candidate.drug}-${candidate.interaction?.pdbId || idx}`}
+                key={`${candidate.drug}-${idx}`}
                 className="rounded-2xl border border-cyan-300/20 p-4 md:p-5 bg-slate-900/65 space-y-3 shadow-md hover:shadow-[0_0_24px_rgba(52,211,255,0.22)] transition-all animate-soft"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -210,10 +213,20 @@ const RepurposingDiscoveryPanel = ({
                   <div className="text-cyan-100/75 mt-1">Ranking score: {(candidate.score * 100).toFixed(1)}%. This is a model prediction, not verified source evidence.</div>
                 </div>
 
-                <button type="button" onClick={() => onLoadCandidateEvidence?.(candidate)} disabled={candidateEvidenceLoading[candidate.drug]}
-                  className="text-xs px-3 py-2 rounded-lg border border-cyan-300/35 text-cyan-100 hover:bg-cyan-400/15 disabled:opacity-60">
-                  {candidateEvidenceLoading[candidate.drug] ? 'Loading source evidence…' : 'Load literature and clinical trials'}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onInvestigateCandidate?.(candidate, data.disease)}
+                    disabled={investigatingCandidate === candidate}
+                    className="rounded-lg border border-emerald-300/40 bg-emerald-400/10 px-3 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-400/20 disabled:opacity-60"
+                  >
+                    {investigatingCandidate === candidate ? 'Opening investigation…' : 'Investigate candidate + disease'}
+                  </button>
+                  <button type="button" onClick={() => onLoadCandidateEvidence?.(candidate)} disabled={candidateEvidenceLoading[candidate.drug]}
+                    className="text-xs px-3 py-2 rounded-lg border border-cyan-300/35 text-cyan-100 hover:bg-cyan-400/15 disabled:opacity-60">
+                    {candidateEvidenceLoading[candidate.drug] ? 'Loading source evidence…' : 'Load literature and clinical trials'}
+                  </button>
+                </div>
 
                 {candidateEvidence[candidate.drug]?.error && <p className="text-xs text-rose-200">{candidateEvidence[candidate.drug].error}</p>}
                 {candidateEvidence[candidate.drug]?.candidateEvidence && (() => {
@@ -270,27 +283,11 @@ const RepurposingDiscoveryPanel = ({
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-emerald-300/30 p-3 bg-slate-950/55">
-                  <div className="text-xs font-semibold text-emerald-200 mb-2 flex items-center">
-                    <Atom className="w-3 h-3 mr-1" />
-                    3D Interaction View ({candidate.interaction?.pdbId || 'Model'})
-                  </div>
-                  <EmbeddedMoleculeViewer
-                    molecule={candidate.drug}
-                    pdbId={candidate.interaction?.pdbId}
-                  />
-                  {candidate.interaction?.pdbId && (
-                    <a
-                      href={`https://www.rcsb.org/structure/${candidate.interaction.pdbId}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center mt-2 text-xs text-cyan-300 hover:text-cyan-200"
-                    >
-                      Open full structure details
-                      <ExternalLink className="w-3 h-3 ml-1" />
-                    </a>
-                  )}
-                </div>
+                <EmbeddedMoleculeViewer
+                  molecule={candidate.drug}
+                  structureMapping={candidate.interaction}
+                  target={candidate.target}
+                />
               </article>
             ))}
           </div>

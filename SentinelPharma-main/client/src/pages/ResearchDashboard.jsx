@@ -11,16 +11,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Search,
   Loader2,
   Brain,
   TrendingUp,
   FileText,
   Eye,
-  DollarSign,
   AlertCircle,
   CheckCircle2,
-  Clock,
   Shield,
   Users,
   Network,
@@ -45,13 +42,16 @@ import BenchmarkProductPanel from '../components/dashboard/BenchmarkProductPanel
 import AutoSuggestInput from '../components/dashboard/AutoSuggestInput';
 import CitationPanel, { CitationSidebar } from '../components/dashboard/CitationPanel';
 import LiveResearchSummary from '../components/dashboard/LiveResearchSummary';
+import EmbeddedMoleculeViewer from '../components/dashboard/EmbeddedMoleculeViewer';
 import ReportGenerator from '../components/dashboard/ReportGenerator';
 import WatchAlertModule from '../components/dashboard/WatchAlertModule';
 import RepurposingDiscoveryPanel from '../components/dashboard/RepurposingDiscoveryPanel';
 import ExperimentalRepurposingExplorer from '../components/dashboard/ExperimentalRepurposingExplorer';
 import KnowledgeGraphEnhanced from '../components/graph/KnowledgeGraphEnhanced';
+import LiveKnowledgeGraphPanel from '../components/graph/LiveKnowledgeGraphPanel';
 import StrategySelector from '../components/StrategySelector';
 import EvidenceProvenanceNotice from '../components/ui/EvidenceProvenanceNotice';
+import WorkspacePanel from '../components/ui/WorkspacePanel';
 
 const apiErrorMessage = (error, fallback) => {
   const payload = error?.response?.data;
@@ -72,7 +72,6 @@ const ResearchDashboard = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
-  const [showGraph, setShowGraph] = useState(false);
   const [activeTab, setActiveTab] = useState('results'); // 'results', 'graph', 'citations', 'watch'
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [showStrategySelector, setShowStrategySelector] = useState(false);
@@ -82,6 +81,7 @@ const ResearchDashboard = () => {
   const [discoveryResults, setDiscoveryResults] = useState(null);
   const [candidateEvidence, setCandidateEvidence] = useState({});
   const [candidateEvidenceLoading, setCandidateEvidenceLoading] = useState({});
+  const [activeInvestigation, setActiveInvestigation] = useState(null);
 
   // 7 Mandatory Agents + 3 Strategic Agents (EY Focus)
   const [agentStatuses, setAgentStatuses] = useState([
@@ -100,26 +100,34 @@ const ResearchDashboard = () => {
   /**
    * Handle research form submission
    */
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, overrides = {}) => {
+    e?.preventDefault?.();
 
-    if (!drugName.trim()) {
+    const requestedDrug = String(overrides.drugName ?? drugName).trim();
+    const requestedDisease = String(overrides.indication ?? indication).trim();
+    const requestedMode = overrides.researchMode ?? researchMode;
+
+    if (!requestedDrug) {
       setError('Please enter a drug or molecule name');
       return;
     }
+
+    setActiveInvestigation(overrides.candidate
+      ? { candidate: overrides.candidate, disease: requestedDisease }
+      : null);
 
     setIsLoading(true);
     setError(null);
     setResults(null);
     setSelectedAgent(null);
-    setActiveTab(researchMode === 'live' ? 'results' : 'agents');
+    setActiveTab(requestedMode === 'live' ? 'results' : 'agents');
 
     // update statuses to thinking
     setAgentStatuses(prev => prev.map(agent => ({ ...agent, status: 'thinking' })));
 
     try {
       // Actual API call with selected model provider
-      const response = await researchService.analyze(drugName, privacyMode, selectedModel, indication.trim() || null, researchMode);
+      const response = await researchService.analyze(requestedDrug, privacyMode, selectedModel, requestedDisease || null, requestedMode);
 
       setResults(response.data);
 
@@ -152,7 +160,7 @@ const ResearchDashboard = () => {
       setAgentStatuses(prev => prev.map(agent => {
         // Find the backend key for this agent
         const backendKey = Object.entries(backendToFrontendMap).find(
-          ([key, name]) => name === agent.name
+          ([, name]) => name === agent.name
         )?.[0];
 
         // Check if data exists for this agent
@@ -170,7 +178,7 @@ const ResearchDashboard = () => {
         };
       }));
 
-      setActiveTab(researchMode === 'live' ? 'results' : 'agents');
+      setActiveTab(requestedMode === 'live' ? 'results' : 'agents');
     } catch (err) {
       console.error('Research failed:', err);
       setError(apiErrorMessage(err, 'Failed to process research request'));
@@ -221,6 +229,22 @@ const ResearchDashboard = () => {
     }
   };
 
+  const handleInvestigateCandidate = async (candidate, candidateDisease) => {
+    const candidateDrug = candidate?.drugName || candidate?.drug || candidate?.name;
+    const disease = String(candidateDisease || discoveryResults?.disease || diseaseQuery || indication).trim();
+    if (!candidateDrug || !disease) return;
+
+    setDrugName(candidateDrug);
+    setIndication(disease);
+    setResearchMode('live');
+    await handleSubmit(null, {
+      drugName: candidateDrug,
+      indication: disease,
+      researchMode: 'live',
+      candidate
+    });
+  };
+
   const handleAgentClick = (agent) => {
     if (agent.status === 'completed') {
       setSelectedAgent(selectedAgent === agent.name ? null : agent.name);
@@ -251,6 +275,7 @@ const ResearchDashboard = () => {
     setResults(null);
     setError(null);
     setSelectedAgent(null);
+    setActiveInvestigation(null);
     setActiveTab('agents');
     setAgentStatuses(prev => prev.map(agent => ({ ...agent, status: 'idle' })));
   };
@@ -259,117 +284,91 @@ const ResearchDashboard = () => {
   const quality = results?.metadata?.quality;
 
   const tabClassMap = {
-    results: 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-200',
-    graph: 'bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-200',
-    citations: 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-200',
-    watch: 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg shadow-rose-200'
+    results: 'research-tab--active',
+    rankings: 'research-tab--active',
+    graph: 'research-tab--active',
+    citations: 'research-tab--active',
+    watch: 'research-tab--active'
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 md:space-y-8 pb-10 px-1 md:px-0">
+    <div className="research-dashboard space-y-6 pb-10">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-3xl px-5 md:px-8 py-7 md:py-9 border border-cyan-300/25 bg-gradient-to-br from-slate-950 via-[#0b2e44] to-[#0b4c4a] text-white shadow-2xl animate-rise">
-        <div className="absolute -top-12 -right-12 h-48 w-48 bg-cyan-300/20 blur-3xl rounded-full" />
-        <div className="absolute -bottom-12 -left-12 h-44 w-44 bg-emerald-300/20 blur-3xl rounded-full" />
-        <div className="relative">
-          <h1 className="section-title text-3xl md:text-5xl font-extrabold mb-3 flex items-center tracking-tight">
-            <Sparkles className="w-7 h-7 md:w-8 md:h-8 mr-3 text-cyan-200 shrink-0" />
-            Drug Repurposing Intelligence
-          </h1>
-          <p className="text-cyan-100/90 text-base md:text-lg max-w-3xl leading-relaxed">
-            Discover candidate therapies from a biomedical knowledge graph and validate pathways with explainable evidence trails.
+      <header className="research-page-header">
+        <div className="max-w-3xl">
+          <p className="research-eyebrow">Research workspace</p>
+          <h1 className="text-3xl font-bold tracking-[-0.035em] text-[var(--research-ink)] md:text-4xl">Drug repurposing evidence review</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--research-muted)] md:text-[0.95rem]">
+            Use two explicit workflows: drug–disease evidence retrieval and disease-first candidate discovery.
           </p>
-          <div className="mt-6 flex flex-wrap gap-2.5 text-sm">
-            <span className="px-3 py-1.5 rounded-full bg-slate-900/35 border border-cyan-200/30 text-cyan-50">10 Specialized Agents</span>
-            <span className="px-3 py-1.5 rounded-full bg-slate-900/35 border border-cyan-200/30 text-cyan-50">GNN Link Prediction</span>
-            <span className="px-3 py-1.5 rounded-full bg-slate-900/35 border border-cyan-200/30 text-cyan-50">Interactive Evidence + 3D View</span>
-          </div>
-          <div className="mt-5 grid sm:grid-cols-3 gap-3 text-xs">
-            <div className="rounded-xl border border-cyan-200/25 bg-slate-900/35 px-3 py-2.5">
-              <p className="uppercase tracking-wide text-cyan-100/75">Signed In</p>
-              <p className="mt-1 text-sm font-semibold text-white truncate">{user?.name || user?.email || 'Research User'}</p>
-              <p className="text-[11px] text-cyan-100/70 truncate">{user?.email || 'No email available'}</p>
-            </div>
-            <div className="rounded-xl border border-cyan-200/25 bg-slate-900/35 px-3 py-2.5">
-              <p className="uppercase tracking-wide text-cyan-100/75">Role</p>
-              <p className="mt-1 text-sm font-semibold text-white">{String(user?.role || 'researcher').toUpperCase()}</p>
-            </div>
-            <div className="rounded-xl border border-cyan-200/25 bg-slate-900/35 px-3 py-2.5">
-              <p className="uppercase tracking-wide text-cyan-100/75">Inference Mode</p>
-              <p className="mt-1 text-sm font-semibold text-white">{privacyMode === 'secure' ? 'LOCAL SECURE' : 'CLOUD'}</p>
-            </div>
-          </div>
         </div>
-      </div>
-
-      <RepurposingDiscoveryPanel
-        disease={diseaseQuery}
-        setDisease={setDiseaseQuery}
-        onSubmit={handleDiscoverySubmit}
-        loading={discoveryLoading}
-        error={discoveryError}
-        data={discoveryResults}
-        candidateEvidence={candidateEvidence}
-        candidateEvidenceLoading={candidateEvidenceLoading}
-        onLoadCandidateEvidence={handleLoadCandidateEvidence}
-      />
-
-      <ExperimentalRepurposingExplorer service={researchService} />
+        <div className="research-session-card">
+          <span className="research-session-card__avatar" aria-hidden="true">{String(user?.name || user?.email || 'R').charAt(0).toUpperCase()}</span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold text-[var(--research-ink)]">{user?.name || user?.email || 'Research User'}</span>
+            <span className="block text-xs capitalize text-[var(--research-muted)]">{String(user?.role || 'researcher')}</span>
+          </span>
+          <span className="research-session-card__mode"><Shield className="h-3.5 w-3.5" />{privacyMode === 'secure' ? 'Local' : 'Cloud'}</span>
+        </div>
+      </header>
 
       {/* Search Form */}
-      <div className="dash-surface rounded-3xl p-5 md:p-6 border border-gray-100 dark:border-slate-700 animate-rise">
+      <WorkspacePanel
+        eyebrow={researchMode === 'live' ? 'Flow 1 · Drug and disease inputs' : 'Demonstration mode'}
+        title={researchMode === 'live' ? 'Drug–Disease Evidence' : 'New research'}
+        description={researchMode === 'live'
+          ? 'The drug and disease affect source retrieval and the pair-specific V5 evidence graph. Model rankings are separate and conditioned on disease only.'
+          : 'Run the existing synthetic demonstration with its current provenance labels.'}
+        actions={(
+          <button
+            type="button"
+            onClick={() => setShowStrategySelector(!showStrategySelector)}
+            className="research-secondary-button"
+            aria-expanded={showStrategySelector}
+          >
+            <Sparkles className="h-4 w-4" />
+            Query library
+            <ChevronDown className={`h-4 w-4 transition-transform ${showStrategySelector ? 'rotate-180' : ''}`} />
+          </button>
+        )}
+      >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="mb-4">
-            <button
-              type="button"
-              onClick={() => setShowStrategySelector(!showStrategySelector)}
-              className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center"
-            >
-              <Sparkles className="w-4 h-4 mr-1" />
-              Use Strategic Query Library
-              <ChevronDown className={`w-4 h-4 ml-1 transition-transform ${showStrategySelector ? 'rotate-180' : ''}`} />
-            </button>
-            {showStrategySelector && (
-              <div className="mt-3">
-                <StrategySelector onSelectQuery={handleStrategySelect} />
-              </div>
-            )}
-          </div>
+          {showStrategySelector && <div className="border-b border-[var(--research-border)] pb-4"><StrategySelector onSelectQuery={handleStrategySelect} /></div>}
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Disease or indication (optional)
-              <input value={indication} onChange={(event) => setIndication(event.target.value)} disabled={isLoading} placeholder="e.g., pancreatic cancer" className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3 text-slate-900" />
+          <div className="grid gap-4 md:grid-cols-[1fr_1fr_210px]">
+            <label className="research-field-label">Molecule or drug
+              <AutoSuggestInput
+                value={drugName}
+                onChange={setDrugName}
+                onSelect={(value) => setDrugName(value)}
+                placeholder="e.g., Metformin"
+                disabled={isLoading}
+              />
             </label>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Research mode
-              <select value={researchMode} onChange={(event) => setResearchMode(event.target.value)} disabled={isLoading} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3 text-slate-900">
+            <label className="research-field-label">Disease or indication <span className="font-normal text-[var(--research-muted)]">(optional)</span>
+              <input value={indication} onChange={(event) => setIndication(event.target.value)} disabled={isLoading} placeholder="e.g., Type 2 Diabetes" className="research-input" />
+            </label>
+            <label className="research-field-label">Research mode
+              <select value={researchMode} onChange={(event) => setResearchMode(event.target.value)} disabled={isLoading} className="research-input">
                 <option value="live">Live evidence</option>
                 <option value="demo">Synthetic demonstration</option>
               </select>
             </label>
           </div>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <AutoSuggestInput
-                value={drugName}
-                onChange={setDrugName}
-                onSelect={(value) => setDrugName(value)}
-                placeholder="Enter drug name (e.g., Aspirin, Metformin, Imatinib, Semaglutide)"
-                disabled={isLoading}
-              />
-              <div className="mt-2 text-xs text-cyan-100/80">
-                Current molecule: <span className="font-semibold text-cyan-50">{drugName || 'Not entered yet'}</span>
-              </div>
+
+          <div className="flex flex-col gap-3 border-t border-[var(--research-border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="research-status-note flex-1">
+              <Shield className="mt-0.5 h-4 w-4 shrink-0 text-[var(--research-evidence)]" />
+              <span>
+                {researchMode === 'live'
+                  ? 'Retrieved records identify their source and retrieval time. Source identity does not establish therapeutic efficacy.'
+                  : `Synthetic demonstration in ${privacyMode === 'secure' ? 'local secure' : 'cloud'} mode; outputs remain labelled demo-only.`}
+              </span>
             </div>
             <button
               type="submit"
               disabled={isLoading || !drugName.trim()}
-              className={`btn-premium px-8 py-3.5 rounded-2xl font-semibold text-white transition-all flex items-center justify-center space-x-2 shadow-lg ${
-                isLoading || !drugName.trim()
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : privacyMode === 'secure'
-                    ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700'
-                    : 'bg-gradient-to-r from-cyan-500 to-sky-600 hover:from-cyan-600 hover:to-sky-700'
-              }`}
+              className="research-primary-button min-w-52"
             >
               {isLoading ? (
                 <>
@@ -379,29 +378,25 @@ const ResearchDashboard = () => {
               ) : (
                 <>
                   <Brain className="w-5 h-5" />
-                  <span>{researchMode === 'live' ? 'Retrieve live evidence' : 'Run demonstration'}</span>
+                  <span>{researchMode === 'live' ? 'Retrieve drug–disease evidence' : 'Run demonstration'}</span>
                 </>
               )}
             </button>
           </div>
-
-          {/* Mode Indicator */}
-          <div className={`text-sm text-center py-3 rounded-xl flex items-center justify-center space-x-2 ${
-            privacyMode === 'secure'
-              ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
-              : 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
-          }`}>
-            <Shield className="w-4 h-4" />
-            <span>
-              {researchMode === 'live' ? 'Live retrieval uses PubMed and ClinicalTrials.gov; GNN ranking is shown separately when available.' : <>Synthetic demonstration in <strong>{privacyMode === 'secure' ? 'Local Secure Mode' : 'Cloud Mode'}</strong></>}
-            </span>
-          </div>
         </form>
-      </div>
+      </WorkspacePanel>
+
+      {!results && !isLoading && !error && (
+        <section className="research-empty-state" aria-label="Research output guide">
+          <div><Database className="h-5 w-5 text-[var(--research-evidence)]" /><h3 className="mt-3">Named source records</h3><p>PubMed and ClinicalTrials.gov records retain identifiers, URLs, and retrieval timestamps.</p></div>
+          <div><TrendingUp className="h-5 w-5 text-[var(--research-prediction)]" /><h3 className="mt-3">Disease-first discovery</h3><p>GraphSAGE and V5 shadow rankings use disease only and remain separate from this evidence query.</p></div>
+          <div><FileText className="h-5 w-5 text-[var(--research-primary)]" /><h3 className="mt-3">Persisted research report</h3><p>Completed requests are saved under an auditable request ID for later review.</p></div>
+        </section>
+      )}
 
       {/* Error */}
       {error && (
-        <div className="animate-soft bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center space-x-3">
+        <div role="alert" className="research-alert research-alert--error animate-soft">
           <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400 flex-shrink-0" />
           <span className="text-red-700 dark:text-red-300">{error}</span>
         </div>
@@ -409,22 +404,21 @@ const ResearchDashboard = () => {
 
       {/* Agent Status Cards */}
       {(researchMode === 'demo' && (isLoading || results)) && (
-        <div className="dash-card rounded-3xl p-6 md:p-7 space-y-5 animate-rise">
-          <div className="flex items-center justify-between">
+        <div className="research-output-card space-y-5 animate-rise">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center mr-3 shadow-lg shadow-cyan-200/70">
-                  <Users className="w-5 h-5 text-white" />
-                </div>
+              <p className="research-eyebrow">Analysis pipeline</p>
+              <h2 className="flex items-center text-lg font-bold text-[var(--research-ink)]">
+                <Users className="mr-2 h-5 w-5 text-[var(--research-primary)]" />
                 AI Agent Overview
               </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-13">
+              <p className="mt-1 text-sm text-[var(--research-muted)]">
                 Click on any completed agent to view detailed analysis
               </p>
             </div>
             {results && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
-                <span className="text-sm text-green-700 font-medium flex items-center">
+              <div className="research-completion-badge">
+                <span className="flex items-center text-sm font-semibold">
                   <CheckCircle2 className="w-4 h-4 mr-2" />
                   {completionCount} of {agentStatuses.length} agents completed
                 </span>
@@ -451,14 +445,14 @@ const ResearchDashboard = () => {
 
       {/* Loading State */}
       {isLoading && (
-        <div className="dash-card rounded-3xl p-8 text-center animate-rise">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-cyan-100 rounded-full mb-4">
-            <Brain className="w-8 h-8 text-cyan-600 animate-pulse" />
+        <div className="research-output-card py-12 text-center animate-rise" aria-live="polite">
+          <div className="research-loading-icon">
+            <Brain className="h-7 w-7 animate-pulse" />
           </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+          <h3 className="mb-2 text-lg font-semibold text-[var(--research-ink)]">
             {researchMode === 'live' ? 'Retrieving source evidence...' : 'Agents Thinking...'}
           </h3>
-          <p className="text-gray-600">
+          <p className="text-sm text-[var(--research-muted)]">
             {researchMode === 'live' ? `Checking PubMed and ClinicalTrials.gov for ${drugName}` : `Our AI agents are analyzing ${drugName} for repurposing opportunities`}
           </p>
           <div className="mt-6 flex justify-center">
@@ -466,7 +460,7 @@ const ResearchDashboard = () => {
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
-                  className="w-3 h-3 bg-cyan-500 rounded-full agent-thinking"
+                  className="h-2 w-2 rounded-full bg-[var(--research-primary)] agent-thinking"
                   style={{ animationDelay: `${i * 0.3}s` }}
                 />
               ))}
@@ -479,35 +473,43 @@ const ResearchDashboard = () => {
       {results && !isLoading && (
         <div className="space-y-6">
           {/* Success Header */}
-          <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-2xl p-1 shadow-lg shadow-cyan-200/60 animate-rise">
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-5 flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-emerald-400 to-green-500 dark:from-emerald-500 dark:to-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-200 dark:shadow-green-900/50">
-                  <CheckCircle2 className="w-7 h-7 text-white" />
+          <div className="research-success-card animate-rise">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex min-w-0 items-start gap-4">
+                <div className="research-success-card__icon">
+                  <CheckCircle2 className="h-6 w-6" />
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">{results.researchMode === 'live' ? 'Research retrieval complete' : 'Analysis Complete!'}</h3>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">
-                    <span className="font-medium text-emerald-600">{drugName}</span> analyzed successfully •
+                <div className="min-w-0">
+                  <p className="research-eyebrow">Completed request</p>
+                  <h3 className="text-xl font-bold text-[var(--research-ink)]">{results.researchMode === 'live' ? 'Research retrieval complete' : 'Analysis complete'}</h3>
+                  <p className="mt-1 text-sm text-[var(--research-muted)]">
+                    {results.researchMode === 'live' ? (
+                      <>
+                        Evidence retrieved for <span className="font-medium text-emerald-600">{drugName}</span>
+                        {results.disease ? ` and ${results.disease}` : ''}
+                      </>
+                    ) : (
+                      <><span className="font-medium text-emerald-600">{drugName}</span> analyzed successfully</>
+                    )} •
                     <span className="text-gray-400 ml-1">{results.results?.processingTimeMs || 0}ms</span>
                   </p>
                   {quality?.score && (
                     <div className="mt-2 space-y-2">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      <div className="research-quality-badge">
                         <Sparkles className="w-3.5 h-3.5" />
                         Quality Score {quality.score}/10 • {quality.grade}
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 dark:text-slate-300">
-                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">
+                      <div className="research-metadata-row">
+                        <span>
                           Confidence: <strong>{quality.confidenceLevel || 'N/A'}</strong>
                         </span>
-                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">
+                        <span>
                           Risk: <strong>{quality.riskSeverity || 'N/A'}</strong>
                         </span>
-                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">
+                        <span>
                           Coverage: <strong>{quality.completedAgents ?? 0}/{quality.expectedAgents ?? 0}</strong>
                         </span>
-                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">
+                        <span>
                           Output: <strong>{results.results?.simulation_disclosure?.label || 'N/A'}</strong>
                         </span>
                       </div>
@@ -518,11 +520,11 @@ const ResearchDashboard = () => {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
                 {results?.requestId && (
                   <Link
                     to={`/report/${results.requestId}`}
-                    className="inline-flex items-center px-4 py-2 rounded-xl bg-cyan-500 text-white font-medium hover:bg-cyan-600 transition-colors"
+                    className="research-primary-button"
                   >
                     <Eye className="w-4 h-4 mr-2" />
                     View Report
@@ -538,24 +540,26 @@ const ResearchDashboard = () => {
           </div>
 
           {/* Tabs Navigation */}
-          <div className="dash-card rounded-2xl overflow-hidden animate-rise">
-            <div className="bg-gradient-to-r from-cyan-500 via-teal-500 to-orange-500 p-1">
-              <div className="bg-white dark:bg-slate-800 rounded-t-xl">
-                <nav className="flex space-x-1 p-2.5 md:p-3 overflow-x-auto">
+          <div className="research-results-shell animate-rise">
+            <div>
+              <div>
+                <nav className="research-tabs" aria-label="Research result views">
                   {[
                     { id: 'results', label: results.researchMode === 'live' ? 'Evidence summary' : 'Summary & ROI', icon: TrendingUp },
-                    ...(results.researchMode === 'live' ? [] : [{ id: 'graph', label: 'Knowledge Graph', icon: Network }]),
+                    ...(results.researchMode === 'live' ? [{ id: 'rankings', label: 'Disease-first rankings', icon: Brain }] : []),
+                    { id: 'graph', label: results.researchMode === 'live' ? 'V5 Evidence Graph' : 'Knowledge Graph', icon: Network },
                     { id: 'citations', label: 'Citations', icon: FileText },
                     ...(results.researchMode === 'live' ? [] : [{ id: 'watch', label: 'Watch & Alert', icon: Eye }])
                   ].map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`btn-premium flex items-center space-x-2 px-4 md:px-5 py-2.5 rounded-xl font-medium transition-all duration-200 whitespace-nowrap ${
+                      className={`research-tab ${
                         activeTab === tab.id
-                          ? `${tabClassMap[tab.id]} scale-105`
-                          : 'text-gray-600 hover:bg-gray-100'
+                          ? tabClassMap[tab.id]
+                          : ''
                       }`}
+                      aria-selected={activeTab === tab.id}
                     >
                       <tab.icon className="w-4 h-4" />
                       <span>{tab.label}</span>
@@ -566,20 +570,51 @@ const ResearchDashboard = () => {
             </div>
 
             {/* Tab Content */}
-            <div className="p-6">
+            <div className="p-4 md:p-6">
               {/* Results Tab */}
               {activeTab === 'results' && (
                 <div className="space-y-6">
-                  {results.researchMode === 'live' ? <LiveResearchSummary report={results} /> : <><BenchmarkProductPanel agentResults={results.results} molecule={drugName} /><ComprehensiveSummary agentResults={results.results} molecule={drugName} /></>}
+                  {results.researchMode === 'live' ? <LiveResearchSummary report={results} view="evidence" /> : <><BenchmarkProductPanel agentResults={results.results} molecule={drugName} /><ComprehensiveSummary agentResults={results.results} molecule={drugName} /></>}
+                  {results.researchMode === 'live' && activeInvestigation && (
+                    <section className="research-ranking-panel" aria-labelledby="investigation-structure-heading">
+                      <div className="research-result-section-heading">
+                        <div>
+                          <p className="research-eyebrow">Selected candidate</p>
+                          <h3 id="investigation-structure-heading" className="text-base font-bold text-[var(--research-ink)]">Verified structure investigation</h3>
+                          <p className="mt-1 text-sm text-[var(--research-muted)]">
+                            {activeInvestigation.candidate.drugName || activeInvestigation.candidate.drug || activeInvestigation.candidate.name} + {activeInvestigation.disease}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <EmbeddedMoleculeViewer
+                          molecule={activeInvestigation.candidate.drugName || activeInvestigation.candidate.drug || activeInvestigation.candidate.name}
+                          structureMapping={activeInvestigation.candidate.interaction}
+                          target={activeInvestigation.candidate.target}
+                        />
+                      </div>
+                    </section>
+                  )}
                 </div>
               )}
 
-              {activeTab === 'graph' && (
-                <KnowledgeGraphEnhanced
-                  molecule={drugName}
-                  data={results.results?.vision}
-                  graphData={results.results?.knowledge_graph || results.results?.vision?.knowledge_graph}
+              {activeTab === 'rankings' && results.researchMode === 'live' && (
+                <LiveResearchSummary
+                  report={results}
+                  view="rankings"
+                  onInvestigateCandidate={(candidate) => handleInvestigateCandidate(candidate, results.disease || indication)}
+                  investigatingCandidate={isLoading ? activeInvestigation?.candidate : null}
                 />
+              )}
+
+              {activeTab === 'graph' && (
+                results.researchMode === 'live'
+                  ? <LiveKnowledgeGraphPanel molecule={drugName} graph={results.results?.knowledge_graph} />
+                  : <KnowledgeGraphEnhanced
+                    molecule={drugName}
+                    data={results.results?.vision}
+                    graphData={results.results?.knowledge_graph || results.results?.vision?.knowledge_graph}
+                  />
               )}
 
               {activeTab === 'citations' && (
@@ -603,13 +638,35 @@ const ResearchDashboard = () => {
           <div className="text-center">
             <button
               onClick={handleReset}
-              className="px-6 py-3 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-xl font-medium text-gray-700 dark:text-gray-200 transition-colors"
+              className="research-secondary-button px-5 py-3"
             >
               Start New Research
             </button>
           </div>
         </div>
       )}
+
+      <section className="space-y-4 border-t border-[var(--research-border)] pt-8" aria-labelledby="additional-tools-title">
+        <div className="max-w-3xl">
+          <p className="research-eyebrow">Flow 2 · Disease input only</p>
+          <h2 id="additional-tools-title" className="text-xl font-bold tracking-tight text-[var(--research-ink)]">Disease-First Candidate Discovery</h2>
+          <p className="mt-1 text-sm leading-6 text-[var(--research-muted)]">Rank candidate drugs from the disease input. No molecule from the evidence workflow affects these scores.</p>
+        </div>
+        <RepurposingDiscoveryPanel
+          disease={diseaseQuery}
+          setDisease={setDiseaseQuery}
+          onSubmit={handleDiscoverySubmit}
+          loading={discoveryLoading}
+          error={discoveryError}
+          data={discoveryResults}
+          candidateEvidence={candidateEvidence}
+          candidateEvidenceLoading={candidateEvidenceLoading}
+          onLoadCandidateEvidence={handleLoadCandidateEvidence}
+          onInvestigateCandidate={handleInvestigateCandidate}
+          investigatingCandidate={isLoading ? activeInvestigation?.candidate : null}
+        />
+        <ExperimentalRepurposingExplorer service={researchService} />
+      </section>
 
       {/* Agent Detail Modal */}
       {selectedCitation && <CitationSidebar isOpen citation={selectedCitation} onClose={() => setSelectedCitation(null)} />}
