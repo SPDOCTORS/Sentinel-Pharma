@@ -67,3 +67,42 @@ test('investigates a ranked candidate and disease through the existing live evid
   fireEvent.click(screen.getByRole('button', { name: /V5 Evidence Graph/i }));
   expect(screen.getByText('V5 graph for Candidate A: biomedical_graph_v5')).toBeInTheDocument();
 });
+
+test('handles candidate investigation from V6 passing canonical IDs and renders structure investigation panel', async () => {
+  researchService.analyze.mockResolvedValue({
+    data: {
+      requestId: 'v6-pair-request-101',
+      researchMode: 'live',
+      molecule: 'Darunavir',
+      disease: 'HIV-1 infection',
+      results: {
+        sourceResults: {
+          pubmed: { success: true, count: 5, dataMode: 'SOURCE_BACKED', verificationStatus: 'VERIFIED_SOURCE' },
+          clinicalTrials: { success: true, count: 3, dataMode: 'SOURCE_BACKED', verificationStatus: 'VERIFIED_SOURCE' }
+        },
+        modelPrediction: { dataMode: 'MODEL_PREDICTION', candidates: [] },
+        knowledge_graph: { dataMode: 'SOURCE_BACKED', graphDatasetVersion: 'biomedical_graph_v5' }
+      }
+    }
+  });
+
+  render(<MemoryRouter><ResearchDashboard /></MemoryRouter>);
+
+  // Trigger candidate investigation button
+  fireEvent.click(screen.getByRole('button', { name: 'Select Candidate A' }));
+
+  await waitFor(() => expect(researchService.analyze).toHaveBeenCalledWith(
+    'Candidate A',
+    'cloud',
+    'test-model',
+    'Disease X',
+    'live'
+  ));
+
+  // Verify structure viewer and report cache key
+  expect(await screen.findByText('Structure check for Candidate A / TARGET1')).toBeInTheDocument();
+  const cachedReport = localStorage.getItem('sentinel_report_v6-pair-request-101');
+  expect(cachedReport).toBeTruthy();
+  expect(JSON.parse(cachedReport).requestId).toBe('v6-pair-request-101');
+});
+

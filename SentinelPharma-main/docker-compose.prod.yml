@@ -62,7 +62,7 @@ services:
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3:8b}
     volumes:
-      - ./ai_engine/artifacts:/app/artifacts
+      - ./ai_engine/artifacts:/app/artifacts:ro
       - ./ai_engine/data:/app/data
     networks:
       - sentinelpharma
@@ -87,7 +87,8 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD in your production environment}
       - AUTH_TOKEN_SECRET=${AUTH_TOKEN_SECRET:?Set AUTH_TOKEN_SECRET to a long random value}
       - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:?Set INTERNAL_SERVICE_TOKEN in your production environment}
-      - AI_ENGINE_URL=http://ai-engine:8000
+      - AI_ENGINE_URL=${AI_ENGINE_URL:-http://ai-engine:8000}
+      - CLIENT_URL=${CLIENT_URL:-http://localhost}
     networks:
       - sentinelpharma
     depends_on:

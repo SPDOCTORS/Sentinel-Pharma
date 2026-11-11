@@ -168,6 +168,25 @@ export const researchService = {
   ),
 
   /**
+   * SentinelPharma V6 Experimental Ranking API
+   */
+  v6Status: async () => (
+    apiClient.get('/api/v6/status')
+  ),
+
+  v6Repurpose: async (disease, topK = 20, excludeKnownIndications = false) => (
+    apiClient.post('/api/v6/repurpose', {
+      disease,
+      top_k: topK,
+      exclude_known_indications: excludeKnownIndications
+    })
+  ),
+
+  v6CandidatePair: async (drug, disease) => (
+    apiClient.post('/api/v6/score-pair', { drug, disease })
+  ),
+
+  /**
    * Get GNN model status from backend passthrough endpoint
    */
   getRepurposingModelStatus: async () => {

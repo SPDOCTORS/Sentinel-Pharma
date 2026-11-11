@@ -14,7 +14,7 @@ const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
-const { createProxyMiddleware } = require('http-proxy-middleware');
+const { createProxyMiddleware, fixRequestBody } = require('http-proxy-middleware');
 
 const { logger } = require('./utils/logger');
 const researchRoutes = require('./routes/researchRoutes');
@@ -71,6 +71,16 @@ mongoose.connection.on('disconnected', () => {
 // MIDDLEWARE CONFIGURATION
 // ======================
 
+// In production, enforce critical environment requirements early
+if (!isDevelopment && !isTest) {
+  if (!process.env.AUTH_TOKEN_SECRET) {
+    throw new Error('AUTH_TOKEN_SECRET must be set when running in production mode');
+  }
+  if (!process.env.AI_ENGINE_URL) {
+    throw new Error('AI_ENGINE_URL must be explicitly configured when running in production mode');
+  }
+}
+
 // Security headers
 // In development, disable Helmet fully to avoid browser-policy interference
 // while proxying/serving local module scripts.
@@ -78,23 +88,34 @@ if (!isDevelopment) {
   app.use(helmet());
 }
 
-// CORS configuration - allow multiple frontend ports for development
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:5175',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:5174',
-  `http://localhost:${PORT}`,  // Allow server's own origin for static file serving
-  `http://127.0.0.1:${PORT}`,  // Allow server's own origin for static file serving
-  process.env.CLIENT_URL
-].filter(Boolean);
+// CORS configuration - restrict strictly in production to configured CLIENT_URL(s)
+const parseOrigins = (raw) => {
+  if (!raw) return [];
+  return raw.split(',').map(s => s.trim()).filter(Boolean);
+};
+
+const allowedOrigins = isDevelopment
+  ? [
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://localhost:5175',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174',
+      `http://localhost:${PORT}`,  // Allow server's own origin for static file serving
+      `http://127.0.0.1:${PORT}`,  // Allow server's own origin for static file serving
+      ...parseOrigins(process.env.CLIENT_URL)
+    ].filter(Boolean)
+  : [
+      ...parseOrigins(process.env.CLIENT_URL),
+      `http://localhost:${PORT}`,
+      `http://127.0.0.1:${PORT}`
+    ].filter(Boolean);
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
+    // Allow requests with no origin (like mobile apps, curl, or internal server calls)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
+    if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     callback(new Error('Not allowed by CORS'));
@@ -251,6 +272,40 @@ app.get('/ready', async (req, res) => {
 
 // Research API routes
 app.use('/api/research', researchRoutes);
+
+// V6 Experimental Ranking API forwarding to AI Engine
+const v6TargetUrl = process.env.AI_ENGINE_URL || 'http://localhost:8002';
+const v6InternalToken = process.env.INTERNAL_SERVICE_TOKEN || 'test-internal-service-token';
+
+const forwardV6Request = async (req, res) => {
+  try {
+    const rawPath = req.originalUrl || req.url || '';
+    const v6Index = rawPath.indexOf('/api/v6');
+    const pathAfterV6 = v6Index !== -1 ? rawPath.slice(v6Index + '/api/v6'.length).split('?')[0] : '';
+    const targetUrl = `${v6TargetUrl}/api/v6${pathAfterV6}`;
+    const response = await axios({
+      method: req.method,
+      url: targetUrl,
+      params: req.query,
+      data: req.method !== 'GET' ? req.body : undefined,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Service-Token': v6InternalToken
+      },
+      validateStatus: () => true
+    });
+    return res.status(response.status).json(response.data);
+  } catch (err) {
+    logger.error('V6 forwarding error', { error: err.message });
+    return res.status(502).json({ success: false, error: 'AI Engine V6 service unavailable' });
+  }
+};
+
+// /api/v6/status provides metadata for the UI and is public, consistent with /api/research/health
+app.get('/api/v6/status', forwardV6Request);
+// All candidate ranking, scoring, and data-modifying V6 routes require authentication
+app.all('/api/v6', requireAuth, forwardV6Request);
+app.all('/api/v6/*', requireAuth, forwardV6Request);
 
 // Auth API routes
 app.use('/api/auth', authRoutes);

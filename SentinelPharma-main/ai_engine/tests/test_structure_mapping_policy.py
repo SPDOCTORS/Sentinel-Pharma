@@ -71,3 +71,22 @@ def test_legacy_artifact_pdb_ids_are_not_returned_as_verified_candidate_structur
     assert len(result["candidates"]) == 3
     assert all(candidate["interaction"]["dataMode"] == "UNAVAILABLE" for candidate in result["candidates"])
     assert all("pdbId" not in candidate["interaction"] for candidate in result["candidates"])
+
+
+def test_nirmatrelvir_sarscov2_mpro_resolves_to_verified_rcsb_mapping():
+    service = object.__new__(GNNRepurposingService)
+    service.verified_structures = {}
+
+    result = service._structure_interaction("Nirmatrelvir", "SARSCoV2_MPRO")
+
+    assert result["dataMode"] == "SOURCE_BACKED"
+    assert result["verificationStatus"] == "VERIFIED_SOURCE"
+    assert result["mappingStatus"] == "VERIFIED"
+    assert result["mappingMethod"] == "VERIFIED_DRUG_TARGET_COMPLEX"
+    assert result["drug"] == "Nirmatrelvir"
+    assert result["target"] == "SARSCoV2_MPRO"
+    assert result["pdbId"] == "7VH8"
+    assert result["provenance"]["source"] == "RCSB PDB"
+    assert result["provenance"]["sourceRecordId"] == "7VH8"
+    assert result["provenance"]["sourceUrl"] == "https://www.rcsb.org/structure/7VH8"
+

@@ -59,12 +59,14 @@ const LiveResearchSummary = ({ report, view = 'all', onInvestigateCandidate, inv
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           {[["pubmed", "PubMed", BookOpen], ["clinicalTrials", "ClinicalTrials.gov", FlaskConical]].map(([key, label, Icon]) => {
             const source = sources[key] || {};
-            const available = source.dataMode === 'SOURCE_BACKED' && source.success;
+            const hasRecords = source.success && (source.count > 0 || (Array.isArray(source.records) && source.records.length > 0));
+            const available = source.dataMode === 'SOURCE_BACKED' && hasRecords;
+            const verificationStatus = hasRecords ? source.verificationStatus : undefined;
             return (
               <article key={key} className={`research-source-card ${available ? 'research-source-card--available' : ''}`}>
                 <div className="flex items-start justify-between gap-3">
                   <span className="research-source-card__icon"><Icon className="h-5 w-5" /></span>
-                  <EvidenceModeBadge dataMode={source.dataMode} verificationStatus={source.verificationStatus} />
+                  <EvidenceModeBadge dataMode={source.dataMode} verificationStatus={verificationStatus} hasRecords={hasRecords} />
                 </div>
                 <h4 className="mt-4 font-semibold text-[var(--research-ink)]">{label}</h4>
                 <p className="mt-1 text-sm text-[var(--research-muted)]">
@@ -104,7 +106,7 @@ const LiveResearchSummary = ({ report, view = 'all', onInvestigateCandidate, inv
             </h3>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--research-muted)]">
               {prediction.dataMode === 'MODEL_PREDICTION'
-                ? 'The disease input determines this ranking. Scores order model-generated hypotheses; they are not probabilities or verified clinical evidence.'
+                ? 'The disease input determines this ranking. GraphSAGE scores are uncalibrated ranking scores; they order model-generated hypotheses, not probabilities or verified clinical evidence. A "validated" badge indicates an existing graph edge in curated training data, NOT clinical trial validation.'
                 : prediction.unavailableReason?.message || 'No ranking available.'}
             </p>
           </div>
@@ -116,6 +118,7 @@ const LiveResearchSummary = ({ report, view = 'all', onInvestigateCandidate, inv
             <ol className="mt-4 divide-y divide-[var(--research-border)] overflow-hidden rounded-xl border border-[var(--research-border)] bg-[var(--research-surface)]">
               {candidates.map((candidate, index) => {
                 const score = candidateScore(candidate);
+                const isEdgeValidated = String(candidate.evidenceLevel || '').toLowerCase() === 'validated';
                 return (
                   <li key={candidate.drugId || candidate.drugName || index} className="research-ranking-row">
                     <span className="research-rank-number" aria-label={`Rank ${candidate.rank || index + 1}`}>{candidate.rank || index + 1}</span>
@@ -123,7 +126,14 @@ const LiveResearchSummary = ({ report, view = 'all', onInvestigateCandidate, inv
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-semibold text-[var(--research-ink)]">{candidateName(candidate)}</span>
                         {candidate.drugId && <span className="research-id-label">{candidate.drugId}</span>}
-                        {candidate.evidenceLevel && <span className="research-id-label">{candidate.evidenceLevel}</span>}
+                        {candidate.evidenceLevel && (
+                          <span
+                            className="research-id-label"
+                            title={isEdgeValidated ? 'Curated graph edge in dataset; not clinical trial validation' : undefined}
+                          >
+                            {isEdgeValidated ? 'Validated (graph edge)' : candidate.evidenceLevel}
+                          </span>
+                        )}
                       </div>
                       {(candidate.target || candidate.rationale) && <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--research-muted)]">{candidate.target ? `Target: ${candidate.target}` : candidate.rationale}</p>}
                       {onInvestigateCandidate && (
@@ -137,8 +147,11 @@ const LiveResearchSummary = ({ report, view = 'all', onInvestigateCandidate, inv
                         </button>
                       )}
                     </div>
-                    <div className="w-28 shrink-0 text-right sm:w-40">
-                      <div className="flex items-center justify-between gap-2 text-xs text-[var(--research-muted)]"><span>Model score</span><strong className="font-mono text-[var(--research-prediction)]">{displayScore(score)}</strong></div>
+                    <div className="w-32 shrink-0 text-right sm:w-44">
+                      <div className="flex items-center justify-between gap-2 text-xs text-[var(--research-muted)]">
+                        <span title="Uncalibrated GraphSAGE link prediction score">Uncalibrated score</span>
+                        <strong className="font-mono text-[var(--research-prediction)]">{displayScore(score)}</strong>
+                      </div>
                       <div className="research-score-track mt-2" aria-hidden="true"><span style={{ width: `${scoreWidth(score)}%` }} /></div>
                     </div>
                   </li>
@@ -164,7 +177,7 @@ const LiveResearchSummary = ({ report, view = 'all', onInvestigateCandidate, inv
               </h3>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--research-muted)]">
                 {shadowPrediction.dataMode === 'MODEL_PREDICTION'
-                  ? 'This disease-conditioned comparison cannot replace the primary ranker. The evidence-flow molecule does not affect its scores.'
+                  ? 'This disease-conditioned comparison cannot replace the primary ranker. Shadow scores are uncalibrated ranking scores; they do not establish clinical efficacy. The evidence-flow molecule does not affect its scores.'
                   : shadowPrediction.unavailableReason?.message || 'The shadow ranking is unavailable.'}
               </p>
             </div>
@@ -178,6 +191,7 @@ const LiveResearchSummary = ({ report, view = 'all', onInvestigateCandidate, inv
               <ol className="mt-4 divide-y divide-[var(--research-border)] overflow-hidden rounded-xl border border-[var(--research-border)] bg-[var(--research-surface)]">
                 {shadowCandidates.map((candidate, index) => {
                   const score = candidateScore(candidate);
+                  const isEdgeValidated = String(candidate.evidenceLevel || '').toLowerCase() === 'validated';
                   return (
                     <li key={candidate.drugId || candidate.drugName || index} className="research-ranking-row">
                       <span className="research-rank-number" aria-label={`Shadow rank ${candidate.rank || index + 1}`}>{candidate.rank || index + 1}</span>
@@ -185,7 +199,14 @@ const LiveResearchSummary = ({ report, view = 'all', onInvestigateCandidate, inv
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-semibold text-[var(--research-ink)]">{candidateName(candidate)}</span>
                           {candidate.drugId && <span className="research-id-label">{candidate.drugId}</span>}
-                          {candidate.evidenceLevel && <span className="research-id-label">{candidate.evidenceLevel}</span>}
+                          {candidate.evidenceLevel && (
+                            <span
+                              className="research-id-label"
+                              title={isEdgeValidated ? 'Curated graph edge in dataset; not clinical trial validation' : undefined}
+                            >
+                              {isEdgeValidated ? 'Validated (graph edge)' : candidate.evidenceLevel}
+                            </span>
+                          )}
                         </div>
                         {onInvestigateCandidate && (
                           <button
@@ -198,8 +219,11 @@ const LiveResearchSummary = ({ report, view = 'all', onInvestigateCandidate, inv
                           </button>
                         )}
                       </div>
-                      <div className="w-28 shrink-0 text-right sm:w-40">
-                        <div className="flex items-center justify-between gap-2 text-xs text-[var(--research-muted)]"><span>Shadow score</span><strong className="font-mono text-[var(--research-prediction)]">{displayScore(score)}</strong></div>
+                      <div className="w-32 shrink-0 text-right sm:w-44">
+                        <div className="flex items-center justify-between gap-2 text-xs text-[var(--research-muted)]">
+                          <span title="Uncalibrated shadow link prediction score">Uncalibrated score</span>
+                          <strong className="font-mono text-[var(--research-prediction)]">{displayScore(score)}</strong>
+                        </div>
                         <div className="research-score-track mt-2" aria-hidden="true"><span style={{ width: `${scoreWidth(score)}%` }} /></div>
                       </div>
                     </li>

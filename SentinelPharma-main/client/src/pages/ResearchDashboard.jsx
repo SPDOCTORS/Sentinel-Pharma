@@ -26,13 +26,13 @@ import {
   Globe,
   Database,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  FlaskConical
 } from 'lucide-react';
 
 // Use the safe hook exported from ResearchContext (returns fallbacks when provider missing)
 import { useResearch } from '../context/ResearchContext';
 import { useModel } from '../context/ModelContext';
-import { useAuth } from '../context/AuthContext';
 
 import { researchService } from '../services/api';
 import AgentStatusCard from '../components/dashboard/AgentStatusCard';
@@ -47,6 +47,7 @@ import ReportGenerator from '../components/dashboard/ReportGenerator';
 import WatchAlertModule from '../components/dashboard/WatchAlertModule';
 import RepurposingDiscoveryPanel from '../components/dashboard/RepurposingDiscoveryPanel';
 import ExperimentalRepurposingExplorer from '../components/dashboard/ExperimentalRepurposingExplorer';
+import V6RepurposingPanel from '../components/dashboard/V6RepurposingPanel';
 import KnowledgeGraphEnhanced from '../components/graph/KnowledgeGraphEnhanced';
 import LiveKnowledgeGraphPanel from '../components/graph/LiveKnowledgeGraphPanel';
 import StrategySelector from '../components/StrategySelector';
@@ -63,7 +64,6 @@ const ResearchDashboard = () => {
   // useResearch gives safe defaults if provider isn't present
   const { privacyMode } = useResearch();
   const { selectedModel } = useModel(); // Get selected model from ModelContext
-  const { user } = useAuth();
 
   const [drugName, setDrugName] = useState('');
   const [indication, setIndication] = useState('');
@@ -82,6 +82,7 @@ const ResearchDashboard = () => {
   const [candidateEvidence, setCandidateEvidence] = useState({});
   const [candidateEvidenceLoading, setCandidateEvidenceLoading] = useState({});
   const [activeInvestigation, setActiveInvestigation] = useState(null);
+  const [experimentalModelTab, setExperimentalModelTab] = useState('v6'); // 'v6' | 'flow3'
 
   // 7 Mandatory Agents + 3 Strategic Agents (EY Focus)
   const [agentStatuses, setAgentStatuses] = useState([
@@ -292,23 +293,22 @@ const ResearchDashboard = () => {
   };
 
   return (
-    <div className="research-dashboard space-y-6 pb-10">
-      {/* Header */}
-      <header className="research-page-header">
-        <div className="max-w-3xl">
-          <p className="research-eyebrow">Research workspace</p>
-          <h1 className="text-3xl font-bold tracking-[-0.035em] text-[var(--research-ink)] md:text-4xl">Drug repurposing evidence review</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--research-muted)] md:text-[0.95rem]">
-            Use two explicit workflows: drug–disease evidence retrieval and disease-first candidate discovery.
+    <div className="research-dashboard space-y-5 pb-8">
+      {/* Page Header */}
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-[var(--research-border)]">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-[var(--research-ink)] md:text-2xl">
+            Drug Repurposing Evidence Review
+          </h1>
+          <p className="text-xs text-[var(--research-muted)] mt-1">
+            Biomedical evidence retrieval, disease-conditioned candidate discovery, and experimental model exploration.
           </p>
         </div>
-        <div className="research-session-card">
-          <span className="research-session-card__avatar" aria-hidden="true">{String(user?.name || user?.email || 'R').charAt(0).toUpperCase()}</span>
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold text-[var(--research-ink)]">{user?.name || user?.email || 'Research User'}</span>
-            <span className="block text-xs capitalize text-[var(--research-muted)]">{String(user?.role || 'researcher')}</span>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--research-surface)] border border-[var(--research-border)] text-xs font-medium text-[var(--research-muted)]">
+            <Shield className="h-3.5 w-3.5 text-[var(--research-evidence)]" />
+            {privacyMode === 'secure' ? 'Local Secure' : 'Cloud Connected'}
           </span>
-          <span className="research-session-card__mode"><Shield className="h-3.5 w-3.5" />{privacyMode === 'secure' ? 'Local' : 'Cloud'}</span>
         </div>
       </header>
 
@@ -378,21 +378,13 @@ const ResearchDashboard = () => {
               ) : (
                 <>
                   <Brain className="w-5 h-5" />
-                  <span>{researchMode === 'live' ? 'Retrieve drug–disease evidence' : 'Run demonstration'}</span>
+                  <span>{researchMode === 'live' ? 'Retrieve drug-disease evidence' : 'Run demonstration'}</span>
                 </>
               )}
             </button>
           </div>
         </form>
       </WorkspacePanel>
-
-      {!results && !isLoading && !error && (
-        <section className="research-empty-state" aria-label="Research output guide">
-          <div><Database className="h-5 w-5 text-[var(--research-evidence)]" /><h3 className="mt-3">Named source records</h3><p>PubMed and ClinicalTrials.gov records retain identifiers, URLs, and retrieval timestamps.</p></div>
-          <div><TrendingUp className="h-5 w-5 text-[var(--research-prediction)]" /><h3 className="mt-3">Disease-first discovery</h3><p>GraphSAGE and V5 shadow rankings use disease only and remain separate from this evidence query.</p></div>
-          <div><FileText className="h-5 w-5 text-[var(--research-primary)]" /><h3 className="mt-3">Persisted research report</h3><p>Completed requests are saved under an auditable request ID for later review.</p></div>
-        </section>
-      )}
 
       {/* Error */}
       {error && (
@@ -646,11 +638,16 @@ const ResearchDashboard = () => {
         </div>
       )}
 
-      <section className="space-y-4 border-t border-[var(--research-border)] pt-8" aria-labelledby="additional-tools-title">
+      {/* Flow 2: Disease-First Candidate Discovery */}
+      <section className="space-y-3 border-t border-[var(--research-border)] pt-5" aria-labelledby="flow2-discovery-title">
         <div className="max-w-3xl">
           <p className="research-eyebrow">Flow 2 · Disease input only</p>
-          <h2 id="additional-tools-title" className="text-xl font-bold tracking-tight text-[var(--research-ink)]">Disease-First Candidate Discovery</h2>
-          <p className="mt-1 text-sm leading-6 text-[var(--research-muted)]">Rank candidate drugs from the disease input. No molecule from the evidence workflow affects these scores.</p>
+          <h2 id="flow2-discovery-title" className="text-lg font-bold tracking-tight text-[var(--research-ink)]">
+            Disease-First Candidate Discovery
+          </h2>
+          <p className="mt-0.5 text-xs leading-relaxed text-[var(--research-muted)]">
+            Rank candidate drugs from disease input using GraphSAGE and V5 shadow embeddings. Single-pair molecule evidence queries from Flow 1 do not affect these rankings.
+          </p>
         </div>
         <RepurposingDiscoveryPanel
           disease={diseaseQuery}
@@ -665,7 +662,86 @@ const ResearchDashboard = () => {
           onInvestigateCandidate={handleInvestigateCandidate}
           investigatingCandidate={isLoading ? activeInvestigation?.candidate : null}
         />
-        <ExperimentalRepurposingExplorer service={researchService} />
+      </section>
+
+      {/* Experimental Repurposing Models: Tabbed Flow 3 & V6 */}
+      <section className="space-y-4 border-t border-[var(--research-border)] pt-5" aria-labelledby="experimental-models-heading">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="max-w-3xl">
+            <p className="research-eyebrow">Advanced Repurposing Models · GNN Checkpoints</p>
+            <h2 id="experimental-models-heading" className="text-lg font-bold tracking-tight text-[var(--research-ink)]">
+              Experimental Repurposing Checkpoints
+            </h2>
+            <p className="mt-0.5 text-xs leading-relaxed text-[var(--research-muted)]">
+              Explore link prediction hypotheses across the locked V6 connectivity-aware hybrid ranker and frozen R-GCN checkpoint models.
+            </p>
+          </div>
+
+          {/* Model Switcher Tabs */}
+          <div className="flex items-center p-1 rounded-lg border border-[var(--research-border)] bg-[var(--research-surface-muted)] self-start sm:self-auto" role="tablist" aria-label="Experimental GNN model switcher">
+            <button
+              type="button"
+              role="tab"
+              id="tab-v6-hybrid"
+              aria-selected={experimentalModelTab === 'v6'}
+              aria-controls="panel-v6-hybrid"
+              onClick={() => setExperimentalModelTab('v6')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                experimentalModelTab === 'v6'
+                  ? 'bg-[var(--research-surface)] text-[var(--research-ink)] shadow-sm border border-[var(--research-border)] text-teal-700 dark:text-teal-400'
+                  : 'text-[var(--research-muted)] hover:text-[var(--research-ink)]'
+              }`}
+            >
+              <Network className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+              <span>V6 Hybrid (Disease-First)</span>
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-800">
+                Locked
+              </span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              id="tab-rgcn-explorer"
+              aria-selected={experimentalModelTab === 'flow3'}
+              aria-controls="panel-rgcn-explorer"
+              onClick={() => setExperimentalModelTab('flow3')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                experimentalModelTab === 'flow3'
+                  ? 'bg-[var(--research-surface)] text-[var(--research-ink)] shadow-sm border border-[var(--research-border)] text-indigo-700 dark:text-indigo-400'
+                  : 'text-[var(--research-muted)] hover:text-[var(--research-ink)]'
+              }`}
+            >
+              <FlaskConical className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span>Flow 3 · R-GCN Checkpoint (Drug-First)</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Panel Content: Preserves state in both panels */}
+        <div id="panel-v6-hybrid" role="tabpanel" aria-labelledby="tab-v6-hybrid" className={experimentalModelTab === 'v6' ? 'block' : 'hidden'}>
+          <div className="space-y-1 mb-2">
+            <p className="research-eyebrow">Flow 4 · Locked V6 Final Evaluation Model</p>
+            <h3 id="flow4-v6-title" className="text-sm font-semibold text-[var(--research-muted)]">
+              Disease-first drug repurposing prioritization using the frozen connectivity-aware bilinear interaction hybrid (direct 2-hop paths, disease popularity, and hard-negative-trained R-GCN embeddings).
+            </h3>
+          </div>
+          <V6RepurposingPanel
+            service={researchService}
+            onInvestigateCandidate={handleInvestigateCandidate}
+            investigatingCandidate={isLoading ? activeInvestigation?.candidate : null}
+          />
+        </div>
+
+        <div id="panel-rgcn-explorer" role="tabpanel" aria-labelledby="tab-rgcn-explorer" className={experimentalModelTab === 'flow3' ? 'block' : 'hidden'}>
+          <div className="space-y-1 mb-2">
+            <p className="research-eyebrow">Flow 3 · Experimental R-GCN Checkpoint</p>
+            <h3 id="flow3-experimental-title" className="text-sm font-semibold text-[var(--research-muted)]">
+              Query frozen R-GCN link prediction models and structural evidence graphs for canonical drug identifiers.
+            </h3>
+          </div>
+          <ExperimentalRepurposingExplorer service={researchService} />
+        </div>
       </section>
 
       {/* Agent Detail Modal */}

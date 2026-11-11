@@ -23,8 +23,9 @@ yarn-error.log*
 
 # Environment variables (keep .env.example, ignore actual .env)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.*.example
 
 # IDE
 .vscode/

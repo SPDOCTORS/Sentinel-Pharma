@@ -79,6 +79,34 @@ class KGRow:
     pdb_id: Optional[str] = None
 
 
+VERIFIED_RCSB_STRUCTURE_MAPPINGS: Dict[Tuple[str, str], Dict[str, Any]] = {
+    ("Nirmatrelvir", "SARSCoV2_MPRO"): {
+        "success": True,
+        "evidenceContractVersion": EVIDENCE_CONTRACT_VERSION,
+        "dataMode": "SOURCE_BACKED",
+        "verificationStatus": "VERIFIED_SOURCE",
+        "mappingStatus": "VERIFIED",
+        "mappingMethod": "VERIFIED_DRUG_TARGET_COMPLEX",
+        "drug": "Nirmatrelvir",
+        "target": "SARSCoV2_MPRO",
+        "pdbId": "7VH8",
+        "provenance": {
+            "source": "RCSB PDB",
+            "sourceRecordId": "7VH8",
+            "sourceUrl": "https://www.rcsb.org/structure/7VH8",
+            "retrievedAt": "2026-10-09T03:07:00Z",
+            "ligandId": "4WI",
+            "ligandName": "nirmatrelvir, bound form",
+            "resolution": "1.59 Å",
+            "experimentalMethod": "X-RAY DIFFRACTION",
+            "title": "Crystal structure of SARS-CoV-2 main protease in complex with protease inhibitor PF-07321332",
+            "doi": "10.1007/s13238-021-00883-2",
+            "pubmedId": "34687004",
+        },
+    }
+}
+
+
 class GNNRepurposingService:
     def __init__(self, ai_engine_root: Path):
         self.ai_engine_root = ai_engine_root
@@ -211,6 +239,11 @@ class GNNRepurposingService:
 
     def _structure_interaction(self, drug: str, target: str) -> Dict[str, Any]:
         mapping = self.verified_structures.get((drug, target))
+        if not mapping:
+            for (d, t), candidate_mapping in VERIFIED_RCSB_STRUCTURE_MAPPINGS.items():
+                if d.casefold() == drug.casefold() and t.casefold() == target.casefold():
+                    mapping = candidate_mapping
+                    break
         if mapping:
             return mapping
         return unavailable_response(

@@ -69,6 +69,7 @@ from app.services.gnn import GNNRepurposingService
 from app.services.gnn.frozen_v5_shadow_service import FrozenV5ShadowService
 from app.services.gnn.v5_evidence_graph_service import V5EvidenceGraphService
 from app.services.gnn.experimental_candidate_service import ExperimentalCandidateService
+from app.services.gnn.v6_ranking_api_service import V6ExperimentalRankingService
 from app.services.pubmed_service import PubMedService, PubMedUnavailable
 from app.services.clinical_trials_service import ClinicalTrialsService, ClinicalTrialsUnavailable
 from app.services.research_workflow import analyze_live_research
@@ -1509,6 +1510,165 @@ async def gnn_online_update(request: GNNOnlineUpdateRequest):
     except Exception as e:
         logger.error("gnn_online_update_failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"GNN online update failed: {str(e)}")
+
+
+# ===================================================
+# SENTINELPHARMA V6 EXPERIMENTAL RANKING API
+# ===================================================
+
+_V6_TAG = "SentinelPharma V6 Experimental Ranking"
+_v6_ranking_service: Optional[V6ExperimentalRankingService] = None
+
+
+class V6RepurposeRequest(BaseModel):
+    """Request model for V6 disease-first candidate repurposing."""
+    disease: str = Field(..., min_length=2, max_length=200, description="Disease canonical ID (e.g. EFO:0000180) or disease name")
+    top_k: int = Field(default=20, ge=1, le=100, description="Number of top ranked candidate drugs to return (1-100)")
+    exclude_known_indications: bool = Field(default=False, description="Whether to filter out known curated indications")
+
+
+class V6PairScoreRequest(BaseModel):
+    """Request model for V6 drug-disease pair scoring."""
+    drug: str = Field(..., min_length=2, max_length=200, description="Drug canonical ID (e.g. CHEMBL:CHEMBL163) or drug name")
+    disease: str = Field(..., min_length=2, max_length=200, description="Disease canonical ID (e.g. EFO:0000180) or disease name")
+
+
+def _get_v6_ranking_service() -> V6ExperimentalRankingService:
+    """Lazy singleton loader for the frozen V6 experimental ranking service."""
+    global _v6_ranking_service
+    if _v6_ranking_service is None:
+        _v6_ranking_service = V6ExperimentalRankingService()
+    return _v6_ranking_service
+
+
+@app.get(
+    "/api/v6/status",
+    tags=[_V6_TAG],
+    summary="Get V6 experimental ranking status, manifest provenance, and model metadata",
+)
+async def get_v6_status():
+    """Returns frozen V6 model readiness, dataset hashes, architecture, and regulatory notice."""
+    try:
+        service = _get_v6_ranking_service()
+        return service.get_status()
+    except Exception as e:
+        logger.error("v6_status_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to load V6 status: {str(e)}")
+
+
+@app.post(
+    "/api/v6/repurpose",
+    tags=[_V6_TAG],
+    summary="Rank drug repurposing candidates for a disease using the frozen V6 connectivity-aware hybrid ranker",
+)
+async def rank_v6_candidates(request: V6RepurposeRequest):
+    """Ranks candidate drugs for a disease across all 6,057 biomedical graph drugs.
+    
+    Returns candidate drugs, uncalibrated relative ranking scores, 2-hop computational graph
+    shared-target mechanism paths, provenance, and explicit MODEL_PREDICTION dataMode.
+    """
+    try:
+        service = _get_v6_ranking_service()
+        return service.rank_candidates(
+            disease_query=request.disease,
+            top_k=request.top_k,
+            exclude_known_indications=request.exclude_known_indications,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error("v6_ranking_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"V6 candidate ranking failed: {str(e)}")
+
+
+@app.get(
+    "/api/v6/repurpose",
+    tags=[_V6_TAG],
+    summary="Query drug repurposing candidates for a disease (GET)",
+)
+async def query_v6_candidates(
+    disease: str = Query(..., min_length=2, max_length=200, description="Disease ID or name"),
+    top_k: int = Query(20, ge=1, le=100, description="Number of candidates to return"),
+    exclude_known_indications: bool = Query(False, description="Filter known curated indications"),
+):
+    """Query parameter interface for V6 repurposing candidate ranking."""
+    try:
+        service = _get_v6_ranking_service()
+        return service.rank_candidates(
+            disease_query=disease,
+            top_k=top_k,
+            exclude_known_indications=exclude_known_indications,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error("v6_query_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"V6 candidate query failed: {str(e)}")
+
+
+@app.get(
+    "/api/v6/repurpose/{disease_id}",
+    tags=[_V6_TAG],
+    summary="Rank repurposing candidates for a specific canonical disease ID",
+)
+async def get_v6_disease_candidates(
+    disease_id: str,
+    top_k: int = Query(20, ge=1, le=100, description="Number of candidates to return"),
+    exclude_known_indications: bool = Query(False, description="Filter known curated indications"),
+):
+    """Path parameter interface for V6 repurposing candidate ranking."""
+    try:
+        service = _get_v6_ranking_service()
+        return service.rank_candidates(
+            disease_query=disease_id,
+            top_k=top_k,
+            exclude_known_indications=exclude_known_indications,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error("v6_disease_query_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"V6 disease query failed: {str(e)}")
+
+
+@app.post(
+    "/api/v6/score-pair",
+    tags=[_V6_TAG],
+    summary="Score a single drug-disease pair and retrieve computational graph mechanism evidence",
+)
+async def score_v6_candidate_pair(request: V6PairScoreRequest):
+    """Evaluates a single drug-disease pair with uncalibrated relative score and computational graph mechanism evidence."""
+    try:
+        service = _get_v6_ranking_service()
+        return service.score_candidate_pair(
+            drug_query=request.drug,
+            disease_query=request.disease,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error("v6_pair_score_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"V6 pair score failed: {str(e)}")
+
+
+@app.get(
+    "/api/v6/repurpose/{disease_id}/drugs/{drug_id}",
+    tags=[_V6_TAG],
+    summary="Inspect computational graph mechanism evidence and score for a specific drug and disease",
+)
+async def get_v6_pair_detail(disease_id: str, drug_id: str):
+    """Inspects computational graph mechanism evidence and uncalibrated relative score for a specific drug and disease."""
+    try:
+        service = _get_v6_ranking_service()
+        return service.score_candidate_pair(
+            drug_query=drug_id,
+            disease_query=disease_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error("v6_pair_detail_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"V6 pair detail failed: {str(e)}")
 
 
 # ======================

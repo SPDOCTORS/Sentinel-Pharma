@@ -12,8 +12,12 @@ const styles = {
   UNAVAILABLE: 'evidence-badge--unavailable'
 };
 
-export default function EvidenceModeBadge({ dataMode = 'UNAVAILABLE', verificationStatus }) {
-  const label = dataMode === 'SOURCE_BACKED' && verificationStatus === 'VERIFIED_SOURCE'
+export default function EvidenceModeBadge({ dataMode = 'UNAVAILABLE', verificationStatus, hasRecords = true }) {
+  const isVerified = dataMode === 'SOURCE_BACKED' &&
+    verificationStatus === 'VERIFIED_SOURCE' &&
+    hasRecords !== false;
+
+  const label = isVerified
     ? 'Verified source record'
     : labels[dataMode] || labels.UNAVAILABLE;
   return <span className={`evidence-badge ${styles[dataMode] || styles.UNAVAILABLE}`}>

@@ -37,3 +37,44 @@ test('displays the backend unavailable reason without generating geometry', () =
   expect(screen.getByText('No verified structure mapping exists.')).toBeInTheDocument();
   expect(screen.queryByTitle(/Interactive PDB structure/i)).not.toBeInTheDocument();
 });
+
+test('renders Mol* viewer iframe and RCSB provenance for verified Nirmatrelvir complex 7VH8', () => {
+  const nirmatrelvirMapping = {
+    pdbId: '7VH8',
+    drug: 'Nirmatrelvir',
+    target: 'SARSCoV2_MPRO',
+    dataMode: 'SOURCE_BACKED',
+    verificationStatus: 'VERIFIED_SOURCE',
+    mappingStatus: 'VERIFIED',
+    mappingMethod: 'VERIFIED_DRUG_TARGET_COMPLEX',
+    provenance: {
+      source: 'RCSB PDB',
+      sourceRecordId: '7VH8',
+      sourceUrl: 'https://www.rcsb.org/structure/7VH8',
+      retrievedAt: '2026-10-09T03:07:00Z',
+    },
+  };
+
+  render(
+    <EmbeddedMoleculeViewer
+      molecule="Nirmatrelvir"
+      target="SARSCoV2_MPRO"
+      structureMapping={nirmatrelvirMapping}
+    />
+  );
+
+  const viewer = screen.getByTitle('Interactive PDB structure 7VH8 for Nirmatrelvir');
+  expect(viewer).toHaveAttribute(
+    'src',
+    'https://molstar.org/viewer/?pdb=7VH8&pdb-provider=rcsb&collapse-left-panel=1&hide-controls=0'
+  );
+  expect(screen.getByRole('link', { name: /Open RCSB PDB/i })).toHaveAttribute(
+    'href',
+    'https://www.rcsb.org/structure/7VH8'
+  );
+  expect(screen.getByText(/Mapping source: RCSB PDB, record 7VH8/)).toBeInTheDocument();
+  expect(screen.getByText('Verified mapping')).toBeInTheDocument();
+  fireEvent.load(viewer);
+  expect(screen.queryByText('Loading verified archive structure')).not.toBeInTheDocument();
+});
+
